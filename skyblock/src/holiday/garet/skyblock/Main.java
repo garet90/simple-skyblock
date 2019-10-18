@@ -22,6 +22,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -40,6 +41,10 @@ public class Main extends JavaPlugin implements Listener {
 	List<Location> islandHome = new ArrayList<Location>();
 	List<Double> balances = new ArrayList<Double>();
 	List<List<Boolean>> islandSettings = new ArrayList<List<Boolean>>();
+	List<Integer> invites = new ArrayList<Integer>();
+	List<String> islandLeader = new ArrayList<String>();
+	List<List<String>> islandMembers = new ArrayList<List<String>>();
+	List<String> toClear = new ArrayList<String>();
 	
 	String CHAT_PREFIX = ChatColor.GRAY + "[" + ChatColor.AQUA + "SKYBLOCK" + ChatColor.GRAY + "] " + ChatColor.RESET;
 	int ISLAND_HEIGHT = 70;
@@ -57,6 +62,7 @@ public class Main extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
     	Bukkit.getPluginManager().registerEvents(this, this);
+    	toClear = config.getStringList("data.toClear");
     	nextIsland = new Location(skyWorld, -limX, ISLAND_HEIGHT,-limZ);
     	skyWorld = getServer().getWorld("world");
     	if (config.isSet("CHAT_PREFIX")) {
@@ -120,50 +126,104 @@ public class Main extends JavaPlugin implements Listener {
 	        			return true;
 	        		}
             	} else if (args[0].equalsIgnoreCase("help")) {
-            		sender.sendMessage(ChatColor.GREEN + "Island commands" + ChatColor.GRAY + ": ");
-            		sender.sendMessage(ChatColor.GRAY + "usage: /is [args]\n");
-            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is home" + ChatColor.RESET + ": teleports you to your island home.");
-            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is sethome" + ChatColor.RESET + ": sets your island\'s home location.");
-            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is reset" + ChatColor.RESET + ": resets your island.");
-            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is visit <player>" + ChatColor.RESET + ": visit another player\'s island.");
-            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is settings <setting | list> [true | false]" + ChatColor.RESET + ": change various island settings.");
-            		return true;
-            	} else if (args[0].equalsIgnoreCase("home")) {
-        			sender.sendMessage(CHAT_PREFIX + "Teleporting you to your island...");
-        			p.teleport(islandHome.get(playerId));
-        			return true;
-            	} else if (args[0].equalsIgnoreCase("sethome")) {
-            		if (
-            				(p.getLocation().getX() > islandP1.get(playerId).getX() && p.getLocation().getX() < islandP2.get(playerId).getX()) &&
-            				(p.getLocation().getZ() > islandP1.get(playerId).getZ() && p.getLocation().getZ() < islandP2.get(playerId).getZ())) {
-	            		islandHome.set(playerId, p.getLocation());
-	            	    saveData();
-	            		sender.sendMessage(CHAT_PREFIX + "Your island home was set to your current location.");
+            		if (args.length > 1 && args[1].equalsIgnoreCase("2")) {
+                		sender.sendMessage(ChatColor.GREEN + "Island commands (2/2)" + ChatColor.GRAY + ": ");
+                		sender.sendMessage(ChatColor.GRAY + "usage: /is [args]\n");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is join <player>" + ChatColor.RESET + ": join a player\'s island.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is leave" + ChatColor.RESET + ": leave a co-op island.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is kick <player>" + ChatColor.RESET + ": kick a member of your island.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is list" + ChatColor.RESET + ": list members of your island.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is makeleader <player>" + ChatColor.RESET + ": make another player leader of the island.");
+            			return true;
             		} else {
-            			sender.sendMessage(ChatColor.RED + "You must be on your island to use this command!");
+                		sender.sendMessage(ChatColor.GREEN + "Island commands (1/2)" + ChatColor.GRAY + ": ");
+                		sender.sendMessage(ChatColor.GRAY + "usage: /is [args]\n");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is help [n]" + ChatColor.RESET + ": view page [n] of /island help.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is home" + ChatColor.RESET + ": teleports you to your island home.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is sethome" + ChatColor.RESET + ": sets your island\'s home location.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is reset" + ChatColor.RESET + ": resets your island.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is visit <player>" + ChatColor.RESET + ": visit another player\'s island.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is settings <setting | list> [true | false]" + ChatColor.RESET + ": change various island settings.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is invite <player>" + ChatColor.RESET + ": invite a player to join your island.");
+	            		return true;
             		}
-            		return true;
-            	} else if (args[0].equalsIgnoreCase("reset")) {
-            		if (args.length == 2 && args[1].equalsIgnoreCase("confirm")) {
-            			if (islandSettings.get(playerId).get(0) != false) {
-				            generateIsland(nextIsland, p);
-				            PlayerInventory inv = p.getInventory();
-				            inv.clear();
-				            inv.setArmorContents(new ItemStack[4]);
-				            sender.sendMessage(CHAT_PREFIX + "Your island was reset successfully.");
-	            			return true;
-            			} else {
-            				sender.sendMessage(ChatColor.RED + "To prevent abuse, you may only reset your island once at this time. Please contact a server admin if you have a problem.");
-            				return true;
-            			}
+            	} else if (args[0].equalsIgnoreCase("home")) {
+            		if (islandHome.get(playerId) != null) {
+	        			sender.sendMessage(CHAT_PREFIX + "Teleporting you to your island...");
+	        			p.teleport(islandHome.get(playerId));
+	        			return true;
             		} else {
-            			sender.sendMessage(CHAT_PREFIX + "Are you sure? This action is irreversable! Type \"/is reset confirm\" to continue\n" + ChatColor.RED + "YOU MAY ONLY RESET YOUR ISLAND ONE TIME!");
+            			sender.sendMessage(ChatColor.RED + "You must have an island to teleport to it!");
+            			return true;
+            		}
+            	} else if (args[0].equalsIgnoreCase("sethome")) {
+            		if (islandP1.get(playerId) != null) {
+	            		if (
+	            				(p.getLocation().getX() > islandP1.get(playerId).getX() && p.getLocation().getX() < islandP2.get(playerId).getX()) &&
+	            				(p.getLocation().getZ() > islandP1.get(playerId).getZ() && p.getLocation().getZ() < islandP2.get(playerId).getZ())) {
+		            		islandHome.set(playerId, p.getLocation());
+		            	    saveData();
+		            		sender.sendMessage(CHAT_PREFIX + "Your island home was set to your current location.");
+	            		} else {
+	            			sender.sendMessage(ChatColor.RED + "You must be on your island to use this command!");
+	            		}
+	            		return true;
+            		} else {
+            			sender.sendMessage(ChatColor.RED + "You must have an island to set home!");
+            			return true;
+            		}
+            	} else if (args[0].equalsIgnoreCase("reset")) {
+            		if (islandP1.get(playerId) != null) {
+	            		if (islandLeader.get(playerId) == null) {
+		            		if (args.length == 2 && args[1].equalsIgnoreCase("confirm")) {
+		            			if (islandSettings.get(playerId).get(0) != false) {
+						            generateIsland(nextIsland, p);
+						            for (int i = 0; i < islandMembers.get(playerId).size(); i++) {
+						            	if (islandMembers.get(playerId).get(i) != null) {
+						            		UUID tempUUID = UUID.fromString(islandMembers.get(playerId).get(i));
+						            		Player tempP = getServer().getPlayer(tempUUID);
+						            		int tempUID = getPlayerId(tempUUID);
+						            		islandP1.set(tempUID, islandP1.get(playerId));
+						            		islandP2.set(tempUID, islandP2.get(playerId));
+						            		islandHome.set(tempUID, islandHome.get(playerId));
+						            		balances.set(tempUID, balances.get(playerId));
+						            		if (tempP == null) {
+						            			toClear.add(tempUUID.toString());
+						            		} else {
+						            			PlayerInventory tempInv = tempP.getInventory();
+						            			tempInv.clear();
+						            			tempInv.setArmorContents(new ItemStack[4]);
+						            			tempP.teleport(islandHome.get(tempUID));
+						            			tempP.sendMessage(CHAT_PREFIX + "Your island was reset successfully.");
+						            		}
+						            	}
+						            }
+						            PlayerInventory inv = p.getInventory();
+						            inv.clear();
+						            inv.setArmorContents(new ItemStack[4]);
+						            sender.sendMessage(CHAT_PREFIX + "Your island was reset successfully.");
+			            			return true;
+		            			} else {
+		            				sender.sendMessage(ChatColor.RED + "To prevent abuse, you may only reset your island once at this time. Please contact a server admin if you have a problem.");
+		            				return true;
+		            			}
+		            		} else {
+		            			sender.sendMessage(CHAT_PREFIX + "Are you sure? This action is irreversable! This will reset your inventory, balance, and island as well as those of all the island\'s members. Type \"/is reset confirm\" to continue\n" + ChatColor.RED + "YOU MAY ONLY RESET YOUR ISLAND ONE TIME!");
+		            			return true;
+		            		}
+	            		} else {
+	            			sender.sendMessage(ChatColor.RED + "You must be island leader to use this command!");
+	            			return true;
+	            		}
+            		} else {
+            			sender.sendMessage(ChatColor.RED + "You must have an island to reset it!");
             			return true;
             		}
             	} else if (args[0].equalsIgnoreCase("visit")) {
             		if (args.length == 2) {
             			int pId = -1;
             			String pName;
+            			String pUUID;
             			if (getServer().getPlayer(args[1]) == null) {
             				// they are offline
 	            			@SuppressWarnings("deprecation")
@@ -171,6 +231,7 @@ public class Main extends JavaPlugin implements Listener {
 	            			if (op.hasPlayedBefore()) {
 	            				pId = getPlayerId(op.getUniqueId());
 	            				pName = op.getName();
+	            				pUUID = op.getUniqueId().toString();
 	            			} else {
 	            				sender.sendMessage(ChatColor.RED + "That user doesn\'t have an island!");
 	            				return true;
@@ -179,15 +240,23 @@ public class Main extends JavaPlugin implements Listener {
             				// they are online
             				pId = getPlayerId(getServer().getPlayer(args[1]).getUniqueId());
             				pName = getServer().getPlayer(args[1]).getName();
+            				pUUID = getServer().getPlayer(args[1]).getUniqueId().toString();
             			}
-            			if ((islandHome.get(pId) != null && !(p.getName().equalsIgnoreCase(args[1])) && islandSettings.get(pId).get(1)) || p.isOp()) {
+            			String leaderUUID = config.getString("data.players." + pUUID + ".islandLeader");
+            			Boolean allowsVisitors;
+            			if (leaderUUID == null) {
+            				allowsVisitors = islandSettings.get(pId).get(1);
+            			} else {
+            				allowsVisitors = config.getBoolean("data.players." + leaderUUID + ".settings.allowsVisitors");
+            			}
+            			if ((islandHome.get(pId) != null && !(p.getName().equalsIgnoreCase(args[1])) && allowsVisitors) || p.isOp()) {
                 			p.teleport(islandHome.get(pId));
                 			sender.sendMessage(CHAT_PREFIX + "Teleported you to " + pName + "\'s island.");
                 			return true;
             			} else if (p.getName().equalsIgnoreCase(args[1])) { 
             				sender.sendMessage(ChatColor.RED + "You can\'t visit yourself!");
             				return true;
-            			} else if (!(islandSettings.get(pId).get(1))) {
+            			} else if (!(allowsVisitors)) {
             				sender.sendMessage(ChatColor.RED + "That island doesn\'t allow visitors.");
             				return true;
             			} else {
@@ -199,38 +268,277 @@ public class Main extends JavaPlugin implements Listener {
             			return true;
             		}
             	} else if (args[0].equalsIgnoreCase("settings")) {
-            		if (args.length > 1) {
-	            		if (args[1].equalsIgnoreCase("list")) {
-	            			ChatColor allowVisitors = ChatColor.RED;
-	            			if (islandSettings.get(playerId).get(1)) {
-	            				allowVisitors = ChatColor.GREEN;
-	            			}
-	            			sender.sendMessage("Island Settings: " + allowVisitors + "allow-visitors" + ChatColor.RESET);
-	            			return true;
-	            		} else if (args[1].equalsIgnoreCase("allow-visitors")) {
-	            			if (args.length > 2) {
-	            				if (args[2].equalsIgnoreCase("true")) {
-	            					islandSettings.get(playerId).set(1, true);
-	            					sender.sendMessage(CHAT_PREFIX + "\'allow-visitors\' was set to true.");
-	            				} else if (args[2].equalsIgnoreCase("false")) {
-	            					islandSettings.get(playerId).set(1, false);
-	            					sender.sendMessage(CHAT_PREFIX + "\'allow-visitors\' was set to false.");
-	            				} else {
-		                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
-	            				}
-	            				return true;
-	            			} else {
-	                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
-	                			return true;
-	            			}
+            		if (islandP1.get(playerId) != null) {
+	            		if (islandLeader.get(playerId) == null) {
+		            		if (args.length > 1) {
+			            		if (args[1].equalsIgnoreCase("list")) {
+			            			ChatColor allowVisitors = ChatColor.RED;
+			            			if (islandSettings.get(playerId).get(1)) {
+			            				allowVisitors = ChatColor.GREEN;
+			            			}
+			            			sender.sendMessage("Island Settings: " + allowVisitors + "allow-visitors" + ChatColor.RESET);
+			            			return true;
+			            		} else if (args[1].equalsIgnoreCase("allow-visitors")) {
+			            			if (args.length > 2) {
+			            				if (args[2].equalsIgnoreCase("true")) {
+			            					islandSettings.get(playerId).set(1, true);
+			            					sender.sendMessage(CHAT_PREFIX + "\'allow-visitors\' was set to true.");
+			            				} else if (args[2].equalsIgnoreCase("false")) {
+			            					islandSettings.get(playerId).set(1, false);
+			            					sender.sendMessage(CHAT_PREFIX + "\'allow-visitors\' was set to false.");
+			            				} else {
+				                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+			            				}
+			            				saveData();
+			            				return true;
+			            			} else {
+			                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+			                			return true;
+			            			}
+			            		} else {
+		                			sender.sendMessage(ChatColor.RED + "Setting not found! Type \'/island settings list\' for a list of settings.");
+		                			return true;
+			            		}
+		            		} else {
+		            			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+		            			return true;
+		            		}
 	            		} else {
-                			sender.sendMessage(ChatColor.RED + "Setting not found! Type \'/island settings list\' for a list of settings.");
-                			return true;
+	            			sender.sendMessage(ChatColor.RED + "You must be island leader to use this command!");
+	            			return true;
 	            		}
             		} else {
-            			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+            			sender.sendMessage(ChatColor.RED + "You must have an island to change it\'s settings!");
             			return true;
             		}
+            	} else if (args[0].equalsIgnoreCase("invite")) {
+            		if (islandP1.get(playerId) != null) {
+	            		if (islandLeader.get(playerId) == null) {
+		            		if (args.length > 1) {
+		            			Player r = getServer().getPlayer(args[1]);
+		            			if (r != null) {
+		            				int rId = getPlayerId(r.getUniqueId());
+			            			if (islandLeader.get(rId) == null || !islandLeader.get(rId).equalsIgnoreCase(p.getUniqueId().toString())) {
+			            				r.sendMessage(ChatColor.GREEN + "You have been invited to join " + sender.getName() + "\'s island. Type \'/is join " + sender.getName() + "\' to join their island. \n" + ChatColor.RED + "Warning: This will remove your old island!");
+			            				sender.sendMessage(ChatColor.GREEN + "You have successfully invited " + r.getName() + " to join your island.");
+			            				invites.set(playerId, rId);
+			            				return true;
+		            				} else {
+		            					p.sendMessage(ChatColor.RED + "This player is already a member of your island!");
+		            					return true;
+		            				}
+		            			} else {
+		                			sender.sendMessage(ChatColor.RED + "Player must be online to receive invite!");
+		                			return true;
+		            			}
+		            		} else {
+		            			sender.sendMessage(ChatColor.RED + "Usage: /island invite <player>");
+		            			return true;
+		            		}
+	            		} else {
+	            			sender.sendMessage(ChatColor.RED + "You must be island leader to use this command!");
+	            			return true;
+	            		}
+            		} else {
+            			sender.sendMessage(ChatColor.RED + "You must have an island to invite people to it!");
+            			return true;
+            		}
+        	    } else if (args[0].equalsIgnoreCase("join")) {
+        	    	if (args.length > 1) {
+            			Player j = getServer().getPlayer(args[1]);
+            			if (j != null) {
+            				int jId = getPlayerId(j.getUniqueId());
+            				if (invites.get(jId) != null && invites.get(jId) == playerId) {
+            					invites.set(jId, null);
+            					islandP1.set(playerId, islandP1.get(jId));
+            					islandP2.set(playerId, islandP2.get(jId));
+            					islandHome.set(playerId, islandHome.get(jId));
+            					islandSettings.get(playerId).set(1, islandSettings.get(jId).get(1));
+            					balances.set(playerId, STARTING_MONEY);
+    				            PlayerInventory inv = p.getInventory();
+    				            inv.clear();
+    				            inv.setArmorContents(new ItemStack[4]);
+    				            p.teleport(islandHome.get(playerId));
+    				    	    p.setBedSpawnLocation(islandHome.get(playerId), true);
+                    			sender.sendMessage(ChatColor.GREEN + "You have successfully joined " + j.getName() + "\'s island.");
+                    			j.sendMessage(ChatColor.GREEN + sender.getName() + " has successfully joined your island.");
+                    			islandLeader.set(playerId, j.getUniqueId().toString());
+                    			islandMembers.get(jId).add(p.getUniqueId().toString());
+                    			saveData();
+    				            return true;
+            				} else {
+                    			sender.sendMessage(ChatColor.RED + "You have not been invited by that player! Ask them to send another invite.");
+                    			return true;
+            				}
+            			} else {
+                			sender.sendMessage(ChatColor.RED + "Player must be online to join their island!");
+                			return true;
+            			}
+        	    	} else {
+            			sender.sendMessage(ChatColor.RED + "Usage: /island join <player>");
+            			return true;
+        	    	}
+        		} else if (args[0].equalsIgnoreCase("leave")) {
+        			if (islandP1.get(playerId) != null) {
+	        			if (islandLeader.get(playerId) != null) {
+	        				Player l = getServer().getPlayer(UUID.fromString(islandLeader.get(playerId)));
+	        				if (l != null) {
+	        					l.sendMessage(ChatColor.GREEN + p.getName() + " has left your island.");
+	        				}
+	        				islandP1.set(playerId, null);
+	        				islandP2.set(playerId, null);
+	        				islandHome.set(playerId, null);
+	        				islandLeader.set(playerId, null);
+	        				islandSettings.get(playerId).set(1, null);
+                			islandMembers.get(getPlayerId(l.getUniqueId())).set(islandMembers.get(getPlayerId(l.getUniqueId())).indexOf(p.getUniqueId().toString()),null);
+	        				saveData();
+	            			sender.sendMessage(ChatColor.GREEN + "You have successfully left your island.");
+	        				return true;
+	        			} else {
+	            			sender.sendMessage(ChatColor.RED + "You cannot leave while you are island leader!");
+	            			return true;
+	        			}
+        			} else {
+            			sender.sendMessage(ChatColor.RED + "You must be a member of an island to leave it!");
+            			return true;
+        			}
+        		} else if (args[0].equalsIgnoreCase("kick")) {
+            		if (islandP1.get(playerId) != null) {
+            			if (islandLeader.get(playerId) == null) {
+            				if (args.length > 1) {
+            					Player k = getServer().getPlayer(args[1]);
+            					String kName;
+            					UUID pUUID;
+            					if (k == null) {
+            						@SuppressWarnings("deprecation")
+									OfflinePlayer op = Bukkit.getOfflinePlayer(args[1]);
+            						pUUID = op.getUniqueId();
+            						kName = op.getName();
+            					} else {
+            						pUUID = k.getUniqueId();
+            						kName = k.getName();
+                					if (k.getUniqueId() == p.getUniqueId()) {
+                						sender.sendMessage(ChatColor.RED + "You can\'t kick yourself!");
+                						return true;
+                					}
+            					}
+        						int pId = getPlayerId(pUUID);
+        						if (islandLeader.get(pId).equalsIgnoreCase(p.getUniqueId().toString())) {
+        							islandP1.set(pId, null);
+        							islandP2.set(pId, null);
+        							islandHome.set(pId, null);
+        							islandSettings.get(pId).set(1, null);
+        							islandLeader.set(pId, null);
+        							islandMembers.get(playerId).set(islandMembers.get(playerId).indexOf(pUUID.toString()), null);
+        							saveData();
+            		        		sender.sendMessage(ChatColor.GREEN + kName+ " has been kicked from your island.");
+            		        		if (k != null) {
+            		        			k.sendMessage(ChatColor.RED + "You have been kicked from your island.");
+            		        		}
+            		        		return true;
+        						} else {
+                					sender.sendMessage(ChatColor.RED + "This user is not a member of your island!");
+                					return true;
+        						}
+            				} else {
+            					sender.sendMessage(ChatColor.RED + "Usage: /island kick <player>");
+            					return true;
+            				}
+            			} else {
+                			sender.sendMessage(ChatColor.RED + "You must be the island leader to kick someone!");
+                			return true;
+            			}
+            		} else {
+            			sender.sendMessage(ChatColor.RED + "You must be a member of an island to kick someone!");
+            			return true;
+            		}
+        		} else if (args[0].equalsIgnoreCase("list")) {
+        			if (islandP1.get(playerId) != null) {
+        				UUID leaderUUID;
+        				if (islandLeader.get(playerId) == null) {
+        					// you are the leader
+        					leaderUUID = p.getUniqueId();
+        				} else {
+        					// you are not the leader
+        					leaderUUID = UUID.fromString(islandLeader.get(playerId));
+        				}
+        				int lId = getPlayerId(leaderUUID);
+        				Player l = getServer().getPlayer(leaderUUID);
+        				String leaderName;
+        				ChatColor leaderColor;
+        				if (l != null) {
+        					leaderName = l.getName();
+        					leaderColor = ChatColor.GREEN;
+        				} else {
+							OfflinePlayer op = Bukkit.getOfflinePlayer(leaderUUID);
+    						leaderName = op.getName();
+    						leaderColor = ChatColor.RED;
+        				}
+        				sender.sendMessage(ChatColor.AQUA + "Island Members" + ChatColor.GRAY + ":");
+        				sender.sendMessage(ChatColor.DARK_GRAY + "- " + leaderColor + leaderName);
+        				for (int i = 0; i < islandMembers.get(lId).size(); i++) {
+        					if (islandMembers.get(lId).get(i) != null) {
+        						UUID tempUUID = UUID.fromString(islandMembers.get(lId).get(i));
+        						Player tempP = getServer().getPlayer(tempUUID);
+        						if (tempP != null) {
+            						sender.sendMessage(ChatColor.DARK_GRAY + "- " + ChatColor.GREEN + tempP.getName());
+        						} else {
+        							OfflinePlayer tempOP = Bukkit.getOfflinePlayer(tempUUID);
+        							sender.sendMessage(ChatColor.DARK_GRAY + "- " + ChatColor.RED + tempOP.getName());
+        						}
+        					}
+        				}
+        				return true;
+        			} else {
+            			sender.sendMessage(ChatColor.RED + "You must be a member of an island to see the members of it!");
+            			return true;
+        			}
+            	} else if (args[0].equalsIgnoreCase("makeleader")) {
+        			if (islandP1.get(playerId) != null) {
+        				if (islandLeader.get(playerId) == null) {
+        					if (args.length > 1) {
+        						Player l = getServer().getPlayer(args[1]);
+        						if (l != null) {
+        							int lId = getPlayerId(l.getUniqueId());
+        							if (islandLeader.get(lId).equalsIgnoreCase(p.getUniqueId().toString())) {
+	        							islandLeader.set(lId, null);
+	        							islandLeader.set(playerId, l.getUniqueId().toString());
+	        							for (int i = 0; i < islandMembers.get(playerId).size(); i++) {
+	        								if (islandMembers.get(playerId).get(i) != null && !islandMembers.get(playerId).get(i).equalsIgnoreCase(l.getUniqueId().toString())) {
+	        									int tempId = getPlayerId(UUID.fromString(islandMembers.get(playerId).get(i)));
+	        									islandLeader.set(tempId, l.getUniqueId().toString());
+	        								}
+	        							}
+	        							islandMembers.set(lId, islandMembers.get(playerId));
+	        							islandMembers.set(playerId, null);
+	        							islandMembers.get(lId).add(p.getUniqueId().toString());
+	        							islandMembers.get(lId).set(islandMembers.get(lId).indexOf(l.getUniqueId().toString()), null);
+	        							islandSettings.set(lId, islandSettings.get(playerId));
+	        							invites.set(playerId, null);
+	        							sender.sendMessage(ChatColor.GREEN + l.getName() + " has been made the new island leader.");
+	        							l.sendMessage(ChatColor.GREEN + "You have been made the new island leader.");
+	        							saveData();
+	        							return true;
+        							} else {
+                            			sender.sendMessage(ChatColor.RED + "The a member of your island to become leader of it.");
+                            			return true;
+        							}
+        						} else {
+                        			sender.sendMessage(ChatColor.RED + "The player must be online to become leader.");
+                        			return true;
+        						}
+        					} else {
+                    			sender.sendMessage(ChatColor.RED + "Usage: /island makeleader <player>");
+                    			return true;
+        					}
+        				} else {
+                			sender.sendMessage(ChatColor.RED + "You must be the island leader to confer leadership.");
+                			return true;
+        				}
+        			} else {
+            			sender.sendMessage(ChatColor.RED + "You must have an island to make someone the leader of it!");
+            			return true;
+        			}
             	} else {
             		sender.sendMessage(CHAT_PREFIX + "Unknown command. Type \'/is help\' for a list of commands.");
             		return true;
@@ -429,6 +737,22 @@ public class Main extends JavaPlugin implements Listener {
     	}
     }
     
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent e) {
+    	Player p = e.getPlayer();
+    	if (p != null) {
+    		if (toClear.indexOf(p.getUniqueId().toString()) > -1) {
+    			int playerId = getPlayerId(p.getUniqueId());
+	            PlayerInventory inv = p.getInventory();
+	            inv.clear();
+	            inv.setArmorContents(new ItemStack[4]);
+	            p.teleport(islandHome.get(playerId));
+	            toClear.set(toClear.indexOf(p.getUniqueId().toString()), null);
+	            saveData();
+    		}
+    	}
+    }
+    
     public void saveData() {
     	config.set("CHAT_PREFIX", CHAT_PREFIX);
     	config.set("ISLAND_HEIGHT", ISLAND_HEIGHT);
@@ -441,24 +765,52 @@ public class Main extends JavaPlugin implements Listener {
     		config.set("WORLD", "world");
     	}
     	for (int i = 0; i < players.size(); i++) {
-	    	config.set("data.players." + players.get(i) + ".islandP1.x", islandP1.get(i).getBlockX());
-	    	config.set("data.players." + players.get(i) + ".islandP1.y", islandP1.get(i).getBlockY());
-	    	config.set("data.players." + players.get(i) + ".islandP1.z", islandP1.get(i).getBlockZ());
-	    	config.set("data.players." + players.get(i) + ".islandP2.x", islandP2.get(i).getBlockX());
-	    	config.set("data.players." + players.get(i) + ".islandP2.y", islandP2.get(i).getBlockY());
-	    	config.set("data.players." + players.get(i) + ".islandP2.z", islandP2.get(i).getBlockZ());
-	    	config.set("data.players." + players.get(i) + ".islandHome.x", islandHome.get(i).getX());
-	    	config.set("data.players." + players.get(i) + ".islandHome.y", islandHome.get(i).getY());
-	    	config.set("data.players." + players.get(i) + ".islandHome.z", islandHome.get(i).getZ());
-	    	config.set("data.players." + players.get(i) + ".islandHome.pitch", (int)islandHome.get(i).getPitch());
-	    	config.set("data.players." + players.get(i) + ".islandHome.yaw", (int)islandHome.get(i).getYaw());
-    		config.set("data.players." + players.get(i) + ".settings.resetLeft", islandSettings.get(i).get(0));
-    		config.set("data.players." + players.get(i) + ".settings.allowsVisitors", islandSettings.get(i).get(1));
+    		if (islandP1.get(i) != null) {
+		    	config.set("data.players." + players.get(i) + ".islandP1.x", islandP1.get(i).getBlockX());
+		    	config.set("data.players." + players.get(i) + ".islandP1.y", islandP1.get(i).getBlockY());
+		    	config.set("data.players." + players.get(i) + ".islandP1.z", islandP1.get(i).getBlockZ());
+    		} else {
+		    	config.set("data.players." + players.get(i) + ".islandP1.x", null);
+		    	config.set("data.players." + players.get(i) + ".islandP1.y", null);
+		    	config.set("data.players." + players.get(i) + ".islandP1.z", null);
+    		}
+    		if (islandP2.get(i) != null) {
+		    	config.set("data.players." + players.get(i) + ".islandP2.x", islandP2.get(i).getBlockX());
+		    	config.set("data.players." + players.get(i) + ".islandP2.y", islandP2.get(i).getBlockY());
+		    	config.set("data.players." + players.get(i) + ".islandP2.z", islandP2.get(i).getBlockZ());
+    		} else {
+		    	config.set("data.players." + players.get(i) + ".islandP2.x", null);
+		    	config.set("data.players." + players.get(i) + ".islandP2.y", null);
+		    	config.set("data.players." + players.get(i) + ".islandP2.z", null);
+    		}
+    		if (islandHome.get(i) != null) {
+		    	config.set("data.players." + players.get(i) + ".islandHome.x", islandHome.get(i).getBlockX());
+		    	config.set("data.players." + players.get(i) + ".islandHome.y", islandHome.get(i).getBlockY());
+		    	config.set("data.players." + players.get(i) + ".islandHome.z", islandHome.get(i).getBlockZ());
+		    	config.set("data.players." + players.get(i) + ".islandHome.pitch", (int)islandHome.get(i).getPitch());
+		    	config.set("data.players." + players.get(i) + ".islandHome.yaw", (int)islandHome.get(i).getYaw());
+    		} else {
+		    	config.set("data.players." + players.get(i) + ".islandHome.x", null);
+		    	config.set("data.players." + players.get(i) + ".islandHome.y", null);
+		    	config.set("data.players." + players.get(i) + ".islandHome.z", null);
+		    	config.set("data.players." + players.get(i) + ".islandHome.pitch", null);
+		    	config.set("data.players." + players.get(i) + ".islandHome.yaw", null);
+    		}
+    		if (islandSettings.get(i) != null) {
+    			config.set("data.players." + players.get(i) + ".settings.resetLeft", islandSettings.get(i).get(0));
+    			config.set("data.players." + players.get(i) + ".settings.allowsVisitors", islandSettings.get(i).get(1));
+    		} else {
+    			config.set("data.players." + players.get(i) + ".settings.resetLeft", null);
+    			config.set("data.players." + players.get(i) + ".settings.allowsVisitors", null);
+    		}
     		config.set("data.players." + players.get(i) + ".balance", balances.get(i));
+    		config.set("data.players." + players.get(i) + ".islandLeader", islandLeader.get(i));
+    		config.set("data.players." + players.get(i) + ".islandMembers", islandMembers.get(i));
     	}
     	config.set("data.nextIsland.x", nextIsland.getBlockX());
     	config.set("data.nextIsland.y", nextIsland.getBlockY());
     	config.set("data.nextIsland.z", nextIsland.getBlockZ());
+    	config.set("data.toClear", toClear);
     	saveConfig();
     }
 
@@ -567,7 +919,7 @@ public class Main extends JavaPlugin implements Listener {
 	    chestinv.addItem(new ItemStack(Material.PUMPKIN_SEEDS,1));
 	    chestinv.addItem(new ItemStack(Material.MELON,1));
 	    chestinv.addItem(new ItemStack(Material.CACTUS,1));
-	    chestinv.addItem(new ItemStack(Material.COBBLESTONE,16));;
+	    chestinv.addItem(new ItemStack(Material.COBBLESTONE,16));
 	    
 	    // teleport player
 	    p.teleport(homeLoc);
@@ -602,27 +954,42 @@ public class Main extends JavaPlugin implements Listener {
 	    while (pId == -1) {
 	    	if (config.isSet("data.players." + uuid.toString())) {
 	    		players.add(uuid.toString());
-	    		islandP1.add(new Location(
-	    				skyWorld,
-	    				config.getInt("data.players." + uuid.toString() + ".islandP1.x"),
-	    				config.getInt("data.players." + uuid.toString() + ".islandP1.y"),
-	    				config.getInt("data.players." + uuid.toString() + ".islandP1.z")));
-	    		islandP2.add(new Location(
-	    				skyWorld,
-	    				config.getInt("data.players." + uuid.toString() + ".islandP2.x"),
-	    				config.getInt("data.players." + uuid.toString() + ".islandP2.y"),
-	    				config.getInt("data.players." + uuid.toString() + ".islandP2.z")));
-	    		islandHome.add(new Location(
-	    				skyWorld,
-	    				config.getDouble("data.players." + uuid.toString() + ".islandHome.x"),
-	    				config.getDouble("data.players." + uuid.toString() + ".islandHome.y"),
-	    				config.getDouble("data.players." + uuid.toString() + ".islandHome.z"),
-	    				config.getInt("data.players." + uuid.toString() + ".islandHome.yaw"),
-	    				config.getInt("data.players." + uuid.toString() + ".islandHome.pitch")));
+	    		if (config.isSet("data.players." + uuid.toString() + ".islandP1.x")) {
+		    		islandP1.add(new Location(
+		    				skyWorld,
+		    				config.getInt("data.players." + uuid.toString() + ".islandP1.x"),
+		    				config.getInt("data.players." + uuid.toString() + ".islandP1.y"),
+		    				config.getInt("data.players." + uuid.toString() + ".islandP1.z")));
+	    		} else {
+	    			islandP1.add(null);
+	    		}
+	    		if (config.isSet("data.players." + uuid.toString() + ".islandP2.x")) {
+		    		islandP2.add(new Location(
+		    				skyWorld,
+		    				config.getInt("data.players." + uuid.toString() + ".islandP2.x"),
+		    				config.getInt("data.players." + uuid.toString() + ".islandP2.y"),
+		    				config.getInt("data.players." + uuid.toString() + ".islandP2.z")));
+	    		} else {
+	    			islandP2.add(null);
+	    		}
+	    		if (config.isSet("data.players." + uuid.toString() + ".islandHome.x")) {
+		    		islandHome.add(new Location(
+		    				skyWorld,
+		    				config.getDouble("data.players." + uuid.toString() + ".islandHome.x"),
+		    				config.getDouble("data.players." + uuid.toString() + ".islandHome.y"),
+		    				config.getDouble("data.players." + uuid.toString() + ".islandHome.z"),
+		    				config.getInt("data.players." + uuid.toString() + ".islandHome.yaw"),
+		    				config.getInt("data.players." + uuid.toString() + ".islandHome.pitch")));
+	    		} else {
+	    			islandHome.add(null);
+	    		}
 	    		balances.add(config.getDouble("data.players." + uuid.toString() + ".balance"));
 	    		islandSettings.add(new ArrayList<Boolean>());
 	    		islandSettings.get(islandSettings.size()-1).add(config.getBoolean("data.players." + uuid.toString() + ".settings.resetLeft"));
 	    		islandSettings.get(islandSettings.size()-1).add(config.getBoolean("data.players." + uuid.toString() + ".settings.allowsVisitors"));
+	    		islandLeader.add(config.getString("data.players." + uuid.toString() + ".islandLeader"));
+	    		invites.add(null);
+	    		islandMembers.add(config.getStringList("data.players." + uuid.toString() + ".islandMembers"));
 	    	} else {
 		    	players.add(uuid.toString());
 		    	islandP1.add(null);
@@ -632,6 +999,9 @@ public class Main extends JavaPlugin implements Listener {
 	    		islandSettings.add(new ArrayList<Boolean>());
 	    		islandSettings.get(islandSettings.size()-1).add(null); // resets left
 	    		islandSettings.get(islandSettings.size()-1).add(null); // allows visitors
+	    		islandLeader.add(null);
+	    		invites.add(null);
+	    		islandMembers.add(new ArrayList<String>());
 	    	}
 	    	pId = getPlayerId(uuid);
 	    }
