@@ -1,0 +1,36 @@
+main: holiday.garet.skyblock.Main
+name: SimpleSkyblock
+version: 1.0
+author: garet90
+description: A simple skyblock plugin.
+commands:
+ island:
+  description: The skyblock main command.
+  usage: /is [args]
+  permission: skyblock.island
+  permission-message: You don't have the skyblock.island permission.
+ is:
+  description: Alias of /island
+  usage: /is [args]
+  permission: skyblock.island
+  permission-message: You don't have the skyblock.island permission.
+ balance:
+  description: See how much money a player has.
+  usage: /balance [player]
+  permission: skyblock.economy
+  permission-message: You don't have the skyblock.economy permission.
+ bal:
+  description: Alias of /balance
+  usage: /bal [player]
+  permission: skyblock.economy
+  permission-message: You don't have the skyblock.economy permission.
+ pay:
+  description: Send money to another player.
+  usage: /pay <player> <amount>
+  permission: skyblock.economy
+  permission-message: You don't have the skyblock.economy permission.
+ fly:
+  description: Toggle flight.
+  usage: /fly
+  permission: skyblock.fly
+  permission-message: You don't have the skyblock.fly permission.
