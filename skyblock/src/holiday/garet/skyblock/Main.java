@@ -455,7 +455,7 @@ public class Main extends JavaPlugin implements Listener {
                 					}
             					}
         						int pId = getPlayerId(pUUID);
-        						if (islandLeader.get(pId).equalsIgnoreCase(p.getUniqueId().toString())) {
+        						if (islandLeader.get(pId) != null && islandLeader.get(pId).equalsIgnoreCase(p.getUniqueId().toString())) {
         							islandP1.set(pId, null);
         							islandP2.set(pId, null);
         							islandHome.set(pId, null);
