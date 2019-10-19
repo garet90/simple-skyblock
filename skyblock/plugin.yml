@@ -1,6 +1,6 @@
 main: holiday.garet.skyblock.Main
 name: SimpleSkyblock
-version: 1.1.0
+version: 1.1.1
 author: garet90
 description: A simple skyblock plugin.
 commands:

@@ -46,10 +46,29 @@ public class Main extends JavaPlugin implements Listener {
 	List<List<String>> islandMembers = new ArrayList<List<String>>();
 	List<String> toClear = new ArrayList<String>();
 	
+	// settings:
 	String CHAT_PREFIX = ChatColor.GRAY + "[" + ChatColor.AQUA + "SKYBLOCK" + ChatColor.GRAY + "] " + ChatColor.RESET;
 	int ISLAND_HEIGHT = 70;
 	int ISLAND_WIDTH = 400;
 	int ISLAND_DEPTH = 400;
+	Boolean GENERATE_ORES = true;
+	Boolean INFINITE_RESETS = false;
+	List<String> CHEST_ITEMS = new ArrayList<String>(){/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
+	{
+        add("LAVA_BUCKET:1");
+        add("ICE:2");
+        add("SUGAR_CANE:1");
+        add("RED_MUSHROOM:1");
+        add("BROWN_MUSHROOM:1");
+        add("PUMPKIN_SEEDS:1");
+        add("MELON:1");
+        add("CACTUS:1");
+        add("COBBLESTONE:16");
+          }};
 	
 	World skyWorld;
 	
@@ -94,6 +113,15 @@ public class Main extends JavaPlugin implements Listener {
     				config.getInt("data.nextIsland.x"),
     				config.getInt("data.nextIsland.y"),
     				config.getInt("data.nextIsland.z"));
+    	}
+    	if (config.isSet("GENERATE_ORES")) {
+    		GENERATE_ORES = config.getBoolean("GENERATE_ORES");
+    	}
+    	if (config.isSet("INFINITE_RESETS")) {
+    		INFINITE_RESETS = config.getBoolean("INFINITE_RESETS");
+    	}
+    	if (config.isSet("CHEST_ITEMS")) {
+    		CHEST_ITEMS = config.getStringList("CHEST_ITEMS");
     	}
     	saveData(); // saves defaults (listed above). I guess it's kinda redundant if it just loaded that info, but ehhh, who cares.
     	getLogger().info("Skyblock plugin has been enabled!");
@@ -176,7 +204,7 @@ public class Main extends JavaPlugin implements Listener {
             		if (islandP1.get(playerId) != null) {
 	            		if (islandLeader.get(playerId) == null) {
 		            		if (args.length == 2 && args[1].equalsIgnoreCase("confirm")) {
-		            			if (islandSettings.get(playerId).get(0) != false) {
+		            			if (islandSettings.get(playerId).get(0) != false || INFINITE_RESETS) {
 						            generateIsland(nextIsland, p);
 						            for (int i = 0; i < islandMembers.get(playerId).size(); i++) {
 						            	if (islandMembers.get(playerId).get(i) != null) {
@@ -208,7 +236,10 @@ public class Main extends JavaPlugin implements Listener {
 		            				return true;
 		            			}
 		            		} else {
-		            			sender.sendMessage(CHAT_PREFIX + "Are you sure? This action is irreversable! This will reset your inventory, balance, and island as well as those of all the island\'s members. Type \"/is reset confirm\" to continue\n" + ChatColor.RED + "YOU MAY ONLY RESET YOUR ISLAND ONE TIME!");
+		            			sender.sendMessage(CHAT_PREFIX + "Are you sure? This action is irreversable! This will reset your inventory, balance, and island as well as those of all the island\'s members. Type \"/is reset confirm\" to continue.");
+		            			if (!INFINITE_RESETS) {
+		            				sender.sendMessage(ChatColor.RED + "YOU MAY ONLY RESET YOUR ISLAND ONE TIME!");
+		            			}
 		            			return true;
 		            		}
 	            		} else {
@@ -354,7 +385,7 @@ public class Main extends JavaPlugin implements Listener {
             					islandP2.set(playerId, islandP2.get(jId));
             					islandHome.set(playerId, islandHome.get(jId));
             					islandSettings.get(playerId).set(1, islandSettings.get(jId).get(1));
-            					balances.set(playerId, STARTING_MONEY);
+            					balances.set(playerId, 0.0); // set to 0 to prevent abuse.
     				            PlayerInventory inv = p.getInventory();
     				            inv.clear();
     				            inv.setArmorContents(new ItemStack[4]);
@@ -382,6 +413,7 @@ public class Main extends JavaPlugin implements Listener {
         			if (islandP1.get(playerId) != null) {
 	        			if (islandLeader.get(playerId) != null) {
 	        				Player l = getServer().getPlayer(UUID.fromString(islandLeader.get(playerId)));
+	        				UUID lUUID = UUID.fromString(islandLeader.get(playerId));
 	        				if (l != null) {
 	        					l.sendMessage(ChatColor.GREEN + p.getName() + " has left your island.");
 	        				}
@@ -390,7 +422,7 @@ public class Main extends JavaPlugin implements Listener {
 	        				islandHome.set(playerId, null);
 	        				islandLeader.set(playerId, null);
 	        				islandSettings.get(playerId).set(1, null);
-                			islandMembers.get(getPlayerId(l.getUniqueId())).set(islandMembers.get(getPlayerId(l.getUniqueId())).indexOf(p.getUniqueId().toString()),null);
+                			islandMembers.get(getPlayerId(lUUID)).set(islandMembers.get(getPlayerId(lUUID)).indexOf(p.getUniqueId().toString()),null);
 	        				saveData();
 	            			sender.sendMessage(ChatColor.GREEN + "You have successfully left your island.");
 	        				return true;
@@ -761,6 +793,9 @@ public class Main extends JavaPlugin implements Listener {
     	config.set("LIMIT_X", limX);
     	config.set("LIMIT_Z", limZ);
     	config.set("STARTING_MONEY", STARTING_MONEY);
+    	config.set("GENERATE_ORES", GENERATE_ORES);
+    	config.set("INFINITE_RESETS", INFINITE_RESETS);
+    	config.set("CHEST_ITEMS", CHEST_ITEMS);
     	if (!config.isSet("WORLD")) {
     		config.set("WORLD", "world");
     	}
@@ -878,22 +913,26 @@ public class Main extends JavaPlugin implements Listener {
 	    				} else if (y == y1) {
 	    					currentBlock.setType(Material.BEDROCK);
 	    				} else if (y < y1 + 3) {
-	    					int oreType = (int)Math.floor(Math.random() * 100);
-	    					if (oreType < 75) {
-	    						currentBlock.setType(Material.STONE);
-	    					} else if (oreType < 80) {
-	    						currentBlock.setType(Material.COAL_ORE);
-	    					} else if (oreType < 85) {
-	    						currentBlock.setType(Material.IRON_ORE);
-	    					} else if (oreType < 90) {
-	    						currentBlock.setType(Material.GOLD_ORE);
-	    					} else if (oreType < 92.5) {
-	    						currentBlock.setType(Material.DIAMOND_ORE);
-	    					} else if (oreType < 95) {
-								currentBlock.setType(Material.LAPIS_ORE);
-							} else {
-								currentBlock.setType(Material.REDSTONE_ORE);
-							}
+	    					if (GENERATE_ORES) { // spice things up
+		    					int oreType = (int)Math.floor(Math.random() * 100);
+		    					if (oreType < 75) {
+		    						currentBlock.setType(Material.STONE);
+		    					} else if (oreType < 80) {
+		    						currentBlock.setType(Material.COAL_ORE);
+		    					} else if (oreType < 85) {
+		    						currentBlock.setType(Material.IRON_ORE);
+		    					} else if (oreType < 90) {
+		    						currentBlock.setType(Material.GOLD_ORE);
+		    					} else if (oreType < 92.5) {
+		    						currentBlock.setType(Material.DIAMOND_ORE);
+		    					} else if (oreType < 95) {
+									currentBlock.setType(Material.LAPIS_ORE);
+								} else {
+									currentBlock.setType(Material.REDSTONE_ORE);
+								}
+	    					} else {
+	    						currentBlock.setType(Material.DIRT);
+	    					}
 	    				} else {
 	    					currentBlock.setType(Material.DIRT);
 	    				}
@@ -911,15 +950,15 @@ public class Main extends JavaPlugin implements Listener {
 		skyWorld.getBlockAt(chestLoc).setType(Material.CHEST);
 		Chest chest = (Chest) skyWorld.getBlockAt(chestLoc).getState();
 	    Inventory chestinv = chest.getBlockInventory();
-	    chestinv.addItem(new ItemStack(Material.LAVA_BUCKET,1));
-	    chestinv.addItem(new ItemStack(Material.ICE,2));
-	    chestinv.addItem(new ItemStack(Material.SUGAR_CANE,1));
-	    chestinv.addItem(new ItemStack(Material.RED_MUSHROOM,1));
-	    chestinv.addItem(new ItemStack(Material.BROWN_MUSHROOM,1));
-	    chestinv.addItem(new ItemStack(Material.PUMPKIN_SEEDS,1));
-	    chestinv.addItem(new ItemStack(Material.MELON,1));
-	    chestinv.addItem(new ItemStack(Material.CACTUS,1));
-	    chestinv.addItem(new ItemStack(Material.COBBLESTONE,16));
+	    for(int i = 0; i < CHEST_ITEMS.size(); i++) {
+	    	Material itemMat = Material.getMaterial(CHEST_ITEMS.get(i).split(":")[0]);
+	    	int itemCnt = Integer.parseInt(CHEST_ITEMS.get(i).split(":")[1]);
+	    	if (itemMat != null) {
+	    		chestinv.addItem(new ItemStack(itemMat,itemCnt));
+	    	} else {
+	    		getLogger().severe("Unknown material \'" + CHEST_ITEMS.get(i).split(":")[0] + "\'!");
+	    	}
+	    }
 	    
 	    // teleport player
 	    p.teleport(homeLoc);
