@@ -46,6 +46,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	List<Integer> invites = new ArrayList<Integer>();
 	List<String> islandLeader = new ArrayList<String>();
 	List<List<String>> islandMembers = new ArrayList<List<String>>();
+	
 	List<String> toClear = new ArrayList<String>();
 	
 	// settings:
@@ -555,30 +556,35 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         					if (args.length > 1) {
         						Player l = getServer().getPlayer(args[1]);
         						if (l != null) {
-        							int lId = getPlayerId(l.getUniqueId());
-        							if (islandLeader.get(lId).equalsIgnoreCase(p.getUniqueId().toString())) {
-	        							islandLeader.set(lId, null);
-	        							islandLeader.set(playerId, l.getUniqueId().toString());
-	        							for (int i = 0; i < islandMembers.get(playerId).size(); i++) {
-	        								if (islandMembers.get(playerId).get(i) != null && !islandMembers.get(playerId).get(i).equalsIgnoreCase(l.getUniqueId().toString())) {
-	        									int tempId = getPlayerId(UUID.fromString(islandMembers.get(playerId).get(i)));
-	        									islandLeader.set(tempId, l.getUniqueId().toString());
-	        								}
+            						if (l.getUniqueId() != p.getUniqueId()) {
+	        							int lId = getPlayerId(l.getUniqueId());
+	        							if (islandLeader.get(lId).equalsIgnoreCase(p.getUniqueId().toString())) {
+		        							islandLeader.set(lId, null);
+		        							islandLeader.set(playerId, l.getUniqueId().toString());
+		        							for (int i = 0; i < islandMembers.get(playerId).size(); i++) {
+		        								if (islandMembers.get(playerId).get(i) != null && !islandMembers.get(playerId).get(i).equalsIgnoreCase(l.getUniqueId().toString())) {
+		        									int tempId = getPlayerId(UUID.fromString(islandMembers.get(playerId).get(i)));
+		        									islandLeader.set(tempId, l.getUniqueId().toString());
+		        								}
+		        							}
+		        							islandMembers.set(lId, islandMembers.get(playerId));
+		        							islandMembers.set(playerId, null);
+		        							islandMembers.get(lId).add(p.getUniqueId().toString());
+		        							islandMembers.get(lId).set(islandMembers.get(lId).indexOf(l.getUniqueId().toString()), null);
+		        							islandSettings.set(lId, islandSettings.get(playerId));
+		        							invites.set(playerId, null);
+		        							sender.sendMessage(ChatColor.GREEN + l.getName() + " has been made the new island leader.");
+		        							l.sendMessage(ChatColor.GREEN + "You have been made the new island leader.");
+		        							saveData();
+		        							return true;
+	        							} else {
+	                            			sender.sendMessage(ChatColor.RED + "The player must be a member of your island to become leader of it!");
+	                            			return true;
 	        							}
-	        							islandMembers.set(lId, islandMembers.get(playerId));
-	        							islandMembers.set(playerId, null);
-	        							islandMembers.get(lId).add(p.getUniqueId().toString());
-	        							islandMembers.get(lId).set(islandMembers.get(lId).indexOf(l.getUniqueId().toString()), null);
-	        							islandSettings.set(lId, islandSettings.get(playerId));
-	        							invites.set(playerId, null);
-	        							sender.sendMessage(ChatColor.GREEN + l.getName() + " has been made the new island leader.");
-	        							l.sendMessage(ChatColor.GREEN + "You have been made the new island leader.");
-	        							saveData();
-	        							return true;
-        							} else {
-                            			sender.sendMessage(ChatColor.RED + "The player must be a member of your island to become leader of it!");
-                            			return true;
-        							}
+            						} else {
+            							sender.sendMessage(ChatColor.RED + "You are already the leader of your island!");
+            							return true;
+            						}
         						} else {
                         			sender.sendMessage(ChatColor.RED + "The player must be online to become leader!");
                         			return true;
@@ -614,15 +620,22 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		} else {
         			Player p = getServer().getPlayer(args[0]);
         			int pId;
+        			String pName;
         			if (p != null) {
     	        		pId = getPlayerId(p.getUniqueId());
+    	        		pName = p.getName();
         			} else {
         				@SuppressWarnings("deprecation")
 						OfflinePlayer op = Bukkit.getOfflinePlayer(args[0]);
         				pId = getPlayerId(op.getUniqueId());
+        				pName = op.getName();
         			}
 	        		DecimalFormat dec = new DecimalFormat("#0.00");
-					sender.sendMessage("Balance of " + p.getName() + ": " + ChatColor.GREEN + "$" + dec.format(balances.get(pId)));
+	        		Double balance = balances.get(pId);
+	        		if (balance == null) {
+	        			balance = 0.0;
+	        		}
+					sender.sendMessage("Balance of " + pName + ": " + ChatColor.GREEN + "$" + dec.format(balance));
         			return true;
         		}
         	} else {
@@ -1017,6 +1030,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	}
 
 	public int getPlayerId(UUID uuid) {
+		// run garbage collector if there is enough garbage in memory
+		if (Bukkit.getOnlinePlayers().size() > players.size()*1.25) {
+			garbageCollector();
+		}
+		
 		int pId = players.indexOf(uuid.toString());
 	    while (pId == -1) {
 	    	if (config.isSet("data.players." + uuid.toString())) {
@@ -1073,6 +1091,41 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    	pId = getPlayerId(uuid);
 	    }
 		return pId;
+	}
+	
+	public void garbageCollector() {
+		List<String> tplayers = new ArrayList<String>();
+		List<Location> tislandP1 = new ArrayList<Location>();
+		List<Location> tislandP2 = new ArrayList<Location>();
+		List<Location> tislandHome = new ArrayList<Location>();
+		List<Double> tbalances = new ArrayList<Double>();
+		List<List<Boolean>> tislandSettings = new ArrayList<List<Boolean>>();
+		List<Integer> tinvites = new ArrayList<Integer>();
+		List<String> tislandLeader = new ArrayList<String>();
+		List<List<String>> tislandMembers = new ArrayList<List<String>>();
+		for (int i = 0; i < players.size(); i++) {
+			UUID tempP = UUID.fromString(players.get(i));
+			if (getServer().getPlayer(tempP) != null) {
+				tplayers.add(players.get(i));
+				tislandP1.add(islandP1.get(i));
+				tislandP2.add(islandP2.get(i));
+				tislandHome.add(islandHome.get(i));
+				tbalances.add(balances.get(i));
+				tislandSettings.add(islandSettings.get(i));
+				tinvites.add(invites.get(i));
+				tislandLeader.add(islandLeader.get(i));
+				tislandMembers.add(islandMembers.get(i));
+			}
+		}
+		players = tplayers;
+		islandP1 = tislandP1;
+		islandP2 = tislandP2;
+		islandHome = tislandHome;
+		balances = tbalances;
+		islandSettings = tislandSettings;
+		invites = tinvites;
+		islandLeader = tislandLeader;
+		islandMembers = tislandMembers;
 	}
     
 }

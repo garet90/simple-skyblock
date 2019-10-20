@@ -1,6 +1,6 @@
 main: holiday.garet.skyblock.SimpleSkyblock
 name: SimpleSkyblock
-version: 1.1.3
+version: 1.1.5
 author: garet90
 description: A simple skyblock plugin.
 load: STARTUP
