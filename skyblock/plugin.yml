@@ -1,13 +1,13 @@
 main: holiday.garet.skyblock.SimpleSkyblock
 name: SimpleSkyblock
-version: 1.1.5
+version: 1.2.0
 author: garet90
 description: A simple skyblock plugin.
 load: STARTUP
 commands:
  island:
   description: The skyblock main command.
-  usage: /is [args]
+  usage: /island [args]
   permission: skyblock.island
   permission-message: You don't have the skyblock.island permission.
  is:
@@ -35,3 +35,13 @@ commands:
   usage: /fly
   permission: skyblock.fly
   permission-message: You don't have the skyblock.fly permission.
+ shout:
+  description: Shout to whole server.
+  usage: /shout <message>
+  permission: skyblock.shout
+  permission-message: You don't have the skyblock.shout permission.
+ trade:
+  description: Trade with another player.
+  usage: /trade <player>
+  permission: skyblock.trade
+  permission-message: You don't have the skyblock.trade permission.
