@@ -5,6 +5,7 @@
         <jar destfile="target/${ant.project.name}.jar">
             <fileset dir="bin"></fileset>
             <fileset file="plugin.yml"></fileset>
+        	<fileset file="config.yml"></fileset>
         </jar>
     </target>
 </project>

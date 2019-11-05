@@ -1,3 +1,27 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) Garet Halliday
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
 package holiday.garet.skyblock;
 
 import org.bukkit.plugin.java.JavaPlugin;
@@ -8,7 +32,6 @@ import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.entity.EntityMountEvent;
-import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.TreeType;
 import org.bukkit.World;
@@ -18,10 +41,15 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Effect;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -30,11 +58,14 @@ import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
@@ -48,183 +79,65 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
+
+import java.io.File;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+import holiday.garet.skyblock.economy.Economy;
+import holiday.garet.skyblock.economy.Trade;
+import holiday.garet.skyblock.economy.TradeRequest;
+
 @SuppressWarnings("deprecation")
 public class SimpleSkyblock extends JavaPlugin implements Listener {
-	FileConfiguration config = getConfig();
+	FileConfiguration config = this.getConfig();
+	FileConfiguration data = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "data.yml"));
 	
 	List<String> players = new ArrayList<String>();
 	List<Location> islandP1 = new ArrayList<Location>();
 	List<Location> islandP2 = new ArrayList<Location>();
 	List<Location> islandHome = new ArrayList<Location>();
-	List<Double> balances = new ArrayList<Double>();
 	List<List<Boolean>> islandSettings = new ArrayList<List<Boolean>>();
 	List<Integer> invites = new ArrayList<Integer>();
 	List<String> islandLeader = new ArrayList<String>();
 	List<List<String>> islandMembers = new ArrayList<List<String>>();
-	List<String> tradingRequests = new ArrayList<String>();
+	List<TradeRequest> tradingRequests = new ArrayList<TradeRequest>();
 	List<Double> islandPts = new ArrayList<Double>();
 	
-	List<String> openTrades = new ArrayList<String>();
+	List<Trade> openTrades = new ArrayList<Trade>();
 	
 	List<String> toClear = new ArrayList<String>();
 	
-	// settings:
-	String CHAT_PREFIX = ChatColor.GRAY + "[" + ChatColor.AQUA + "SKYBLOCK" + ChatColor.GRAY + "] " + ChatColor.RESET;
-	int ISLAND_HEIGHT = 70;
-	int ISLAND_WIDTH = 400;
-	int ISLAND_DEPTH = 400;
-	Boolean GENERATE_ORES = true;
-	Boolean INFINITE_RESETS = false;
-	Boolean USE_CHATROOMS = true;
-	Boolean VOID_INSTANT_DEATH = true;
-	Boolean USE_ECONOMY = true;
-	Boolean DISABLE_PLAYER_COLLISIONS = true;
-	List<String> CHEST_ITEMS = new ArrayList<String>(){/**
-		 * 
-		 */
-		private static final long serialVersionUID = 1L;
-
-	{
-        add("LAVA_BUCKET:1");
-        add("ICE:2");
-        add("SUGAR_CANE:1");
-        add("RED_MUSHROOM:1");
-        add("BROWN_MUSHROOM:1");
-        add("PUMPKIN_SEEDS:1");
-        add("MELON:1");
-        add("CACTUS:1");
-        add("COBBLESTONE:16");
-          }};
-    List<String> GENERATOR_ORES = new ArrayList<String>(){/**
-		 * 
-		 */
-		private static final long serialVersionUID = 1L;
-
-	{
-        add("COAL_ORE:2.5");
-        add("IRON_ORE:2.5");
-        add("GOLD_ORE:.2");
-        add("DIAMOND_ORE:.2");
-        add("LAPIS_ORE:.2");
-        add("REDSTONE_ORE:1.5");
-        add("EMERALD_ORE:.1");
-        add("OBSIDIAN:.05");
-        add("STONE:45.875");
-        add("COBBLESTONE:45.875");
-          }};
-  	List<String> KILL_MONEY = new ArrayList<String>(){/**
-		 * 
-		 */
-		private static final long serialVersionUID = 1L;
-
-	{
-		add("Default:0");
-        add("Monster:3");
-        add("Animals:1");
-        add("CREEPER:5");
-        add("ENDERMAN:10");
-        add("ZOMBIE:2");
-          }};
-
-	List<String> LEVEL_PTS = new ArrayList<String>(){/**
-	 	 * 
-		 */
-		private static final long serialVersionUID = 1L;
-
-	{
-      add("Default:1");
-      add("COBBLESTONE:0.1");
-      add("SAPLING:50");
-        }};
-	
-	World skyWorld;
-	
-	int limX = 25000;
-	int limZ = 25000;
 	Location nextIsland;
 	
-	double STARTING_MONEY = 500;
+	World skyWorld;
 	
     @Override
     public void onEnable() {
     	Bukkit.getPluginManager().registerEvents(this, this);
-    	toClear = config.getStringList("data.toClear");
-    	nextIsland = new Location(skyWorld, -limX, ISLAND_HEIGHT,-limZ);
-    	if (config.isSet("CHAT_PREFIX")) {
-    		CHAT_PREFIX = config.getString("CHAT_PREFIX");
+    	if (config.isSet("data")) {
+    		// if the config is out of date, lets fix that.
+    		getLogger().info("Updating the config file from 'v1.2.0' to 'v1.2.1'...");
+    		convertConfig("1.2.0","1.2.1");
     	}
-    	if (config.isSet("ISLAND_HEIGHT")) {
-    		ISLAND_HEIGHT = config.getInt("ISLAND_HEIGHT");
-    	}
-    	if (config.isSet("ISLAND_WIDTH")) {
-    		ISLAND_WIDTH = config.getInt("ISLAND_WIDTH");
-    	}
-    	if (config.isSet("ISLAND_DEPTH")) {
-    		ISLAND_DEPTH = config.getInt("ISLAND_DEPTH");
-    	}
-    	if (config.isSet("LIMIT_X")) {
-    		limX = config.getInt("LIMIT_X");
-    	}
-    	if (config.isSet("LIMIT_Z")) {
-    		limZ = config.getInt("LIMIT_Z");
-    	}
-    	if (config.isSet("STARTING_MONEY")) {
-    		STARTING_MONEY = config.getInt("STARTING_MONEY");
-    	}
-    	if (config.isSet("data.nextIsland")) {
-    		nextIsland = new Location(skyWorld,
-    				config.getInt("data.nextIsland.x"),
-    				config.getInt("data.nextIsland.y"),
-    				config.getInt("data.nextIsland.z"));
-    	}
-    	if (config.isSet("GENERATE_ORES")) {
-    		GENERATE_ORES = config.getBoolean("GENERATE_ORES");
-    	}
-    	if (config.isSet("INFINITE_RESETS")) {
-    		INFINITE_RESETS = config.getBoolean("INFINITE_RESETS");
-    	}
-    	if (config.isSet("CHEST_ITEMS")) {
-    		CHEST_ITEMS = config.getStringList("CHEST_ITEMS");
-    	}
-    	if (config.isSet("KILL_MONEY")) {
-    		KILL_MONEY = config.getStringList("KILL_MONEY");
-    	}
-    	if (config.isSet("GENERATOR_ORES")) {
-    		GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
-    	}
-    	if (config.isSet("LEVEL_PTS")) {
-    		LEVEL_PTS = config.getStringList("LEVEL_PTS");
-    	}
+        this.saveDefaultConfig();
+        this.getConfig().options().copyDefaults(true);
+        config = this.getConfig();
+    	loadConfig();
 		final String worldName;
     	if (config.isSet("WORLD")) {
     		worldName = config.getString("WORLD");
     	} else {
     		worldName = "world";
-    	}
-    	if (!config.isSet("BIOME")) {
-    		config.set("BIOME","PLAINS");
-    	}
-    	if (config.isSet("USE_CHATROOMS")) {
-    		USE_CHATROOMS = config.getBoolean("USE_CHATROOMS");
-    	}
-    	if (config.isSet("USE_ECONOMY")) {
-    		USE_ECONOMY = config.getBoolean("USE_ECONOMY");
-    	}
-    	if (config.isSet("VOID_INSTANT_DEATH")) {
-    		VOID_INSTANT_DEATH = config.getBoolean("VOID_INSTANT_DEATH");
-    	}
-    	if (config.isSet("DISABLE_PLAYER_COLLISIONS")) {
-    		DISABLE_PLAYER_COLLISIONS = config.getBoolean("DISABLE_PLAYER_COLLISIONS");
     	}
     	skyWorld = getServer().getWorld(worldName);
     	if (skyWorld == null) { // If we don't have a world generated yet
@@ -239,7 +152,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                 }
             }, 0L);
     	}
-    	saveData(); // saves defaults (listed above). I guess it's kinda redundant if it just loaded that info, but ehhh, who cares.
+    	toClear = data.getStringList("data.toClear");
+    	if (data.isSet("data.nextIsland")) {
+    		nextIsland = new Location(skyWorld, data.getInt("data.nextIsland.x"), config.getInt("ISLAND_HEIGHT"), config.getInt("data.nextIsland.z"));
+    	} else {
+    		nextIsland = new Location(skyWorld, -config.getInt("LIMIT_X"), config.getInt("ISLAND_HEIGHT"),-config.getInt("LIMIT_Z"));
+    	}
     	getLogger().info("SimpleSkyblock has been enabled!");
     	try {
 	        getLogger().info("Checking for updates...");
@@ -263,6 +181,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     public void onDisable() {
     	getLogger().info("Saving skyblock data...");
     	saveData();
+    	try {
+			data.save(getDataFolder() + File.separator + "data.yml");
+		} catch (IOException e) {
+            Bukkit.getLogger().warning("§4Could not save data.yml file.");
+		}
     	getLogger().info("SimpleSkyblock has been disabled!");
     }
     
@@ -277,11 +200,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		int playerId = getPlayerId(p.getUniqueId());
             	if (args.length == 0) {
 	        		if (islandP1.get(playerId) == null) {
-			            sender.sendMessage(CHAT_PREFIX + "Generating island...");
+			            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Generating island...");
 			            generateIsland(nextIsland, p);
 			            return true;
 	        		} else {
-	        			sender.sendMessage(CHAT_PREFIX + "Teleporting you to your island...");
+	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleporting you to your island...");
 	        			p.teleport(islandHome.get(playerId), TeleportCause.PLUGIN);
 	            		p.setBedSpawnLocation(p.getLocation(), true);
 	        			p.setFallDistance(0);
@@ -312,7 +235,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             		}
             	} else if (args[0].equalsIgnoreCase("home")) {
             		if (islandHome.get(playerId) != null) {
-	        			sender.sendMessage(CHAT_PREFIX + "Teleporting you to your island...");
+	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleporting you to your island...");
 	        			p.teleport(islandHome.get(playerId), TeleportCause.PLUGIN);
 	            		p.setBedSpawnLocation(p.getLocation(), true);
 	        			p.setFallDistance(0);
@@ -329,7 +252,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            		islandHome.set(playerId, p.getLocation());
 		            		p.setBedSpawnLocation(p.getLocation(), true);
 		            	    saveData();
-		            		sender.sendMessage(CHAT_PREFIX + "Your island home was set to your current location.");
+		            		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Your island home was set to your current location.");
 	            		} else {
 	            			sender.sendMessage(ChatColor.RED + "You must be on your island to use this command!");
 	            		}
@@ -342,7 +265,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             		if (islandP1.get(playerId) != null) {
 	            		if (islandLeader.get(playerId) == null) {
 		            		if (args.length == 2 && args[1].equalsIgnoreCase("confirm")) {
-		            			if (islandSettings.get(playerId).get(0) != false || INFINITE_RESETS) {
+		            			if (islandSettings.get(playerId).get(0) != false || config.getBoolean("INFINITE_RESETS")) {
 						            generateIsland(nextIsland, p);
 						            for (int i = 0; i < islandMembers.get(playerId).size(); i++) {
 						            	if (islandMembers.get(playerId).get(i) != null) {
@@ -352,7 +275,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 						            		islandP1.set(tempUID, islandP1.get(playerId));
 						            		islandP2.set(tempUID, islandP2.get(playerId));
 						            		islandHome.set(tempUID, islandHome.get(playerId));
-						            		balances.set(tempUID, balances.get(playerId));
+						            		Economy tempEcon = new Economy(tempUUID, data);
+						            		tempEcon.set(0);
 						            		if (tempP == null) {
 						            			toClear.add(tempUUID.toString());
 						            		} else {
@@ -360,22 +284,22 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 						            			tempInv.clear();
 						            			tempInv.setArmorContents(new ItemStack[4]);
 						            			tempP.teleport(islandHome.get(tempUID), TeleportCause.PLUGIN);
-						            			tempP.sendMessage(CHAT_PREFIX + "Your island was reset successfully.");
+						            			tempP.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Your island was reset successfully.");
 						            		}
 						            	}
 						            }
 						            PlayerInventory inv = p.getInventory();
 						            inv.clear();
 						            inv.setArmorContents(new ItemStack[4]);
-						            sender.sendMessage(CHAT_PREFIX + "Your island was reset successfully.");
+						            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Your island was reset successfully.");
 			            			return true;
 		            			} else {
 		            				sender.sendMessage(ChatColor.RED + "To prevent abuse, you may only reset your island once at this time. Please contact a server admin if you have a problem.");
 		            				return true;
 		            			}
 		            		} else {
-		            			sender.sendMessage(CHAT_PREFIX + "Are you sure? This action is irreversable! This will reset your inventory, balance, and island as well as those of all the island\'s members. Type \"/is reset confirm\" to continue.");
-		            			if (!INFINITE_RESETS) {
+		            			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Are you sure? This action is irreversable! This will reset your inventory, balance, and island as well as those of all the island\'s members. Type \"/is reset confirm\" to continue.");
+		            			if (!config.getBoolean("INFINITE_RESETS")) {
 		            				sender.sendMessage(ChatColor.RED + "YOU MAY ONLY RESET YOUR ISLAND ONE TIME!");
 		            			}
 		            			return true;
@@ -431,7 +355,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            		p.setBedSpawnLocation(p.getLocation(), true);
 		            		p.setBedSpawnLocation(p.getLocation(), true);
 		        			p.setFallDistance(0);
-                			sender.sendMessage(CHAT_PREFIX + "Teleported you to " + pName + "\'s island.");
+                			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleported you to " + pName + "\'s island.");
                 			return true;
             			} else if (p.getName().equalsIgnoreCase(args[1])) { 
             				sender.sendMessage(ChatColor.RED + "You can\'t visit yourself!");
@@ -462,10 +386,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            			if (args.length > 2) {
 			            				if (args[2].equalsIgnoreCase("true")) {
 			            					islandSettings.get(playerId).set(1, true);
-			            					sender.sendMessage(CHAT_PREFIX + "\'allow-visitors\' was set to true.");
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'allow-visitors\' was set to true.");
 			            				} else if (args[2].equalsIgnoreCase("false")) {
 			            					islandSettings.get(playerId).set(1, false);
-			            					sender.sendMessage(CHAT_PREFIX + "\'allow-visitors\' was set to false.");
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'allow-visitors\' was set to false.");
 			            				} else {
 				                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
 			            				}
@@ -552,7 +476,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            					islandP2.set(playerId, islandP2.get(jId));
 	            					islandHome.set(playerId, islandHome.get(jId));
 	            					islandSettings.get(playerId).set(1, islandSettings.get(jId).get(1));
-	            					balances.set(playerId, 0.0); // set to 0 to prevent abuse.
+	            					
+	            					Economy econ = new Economy(p.getUniqueId(), data);
+	            					econ.set(0); // set to 0 to prevent abuse.
 	    				            PlayerInventory inv = p.getInventory();
 	    				            inv.clear();
 	    				            inv.setArmorContents(new ItemStack[4]);
@@ -791,41 +717,76 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			sender.sendMessage(ChatColor.RED + "You must have an island to check the level of it!");
             			return true;
             		}
-            	} else {
-            		sender.sendMessage(CHAT_PREFIX + "Unknown command. Type \'/is help\' for a list of commands.");
+            	} else if (args[0].equalsIgnoreCase("config")) {
+            		if (sender.isOp()) {
+            			if (args.length > 1 && args[1].equalsIgnoreCase("reload")) {
+            				loadConfig();
+            				sender.sendMessage(ChatColor.GREEN + "Skyblock config has been reloaded successfully.");
+            				return true;
+            			} else {
+                			sender.sendMessage(ChatColor.RED + "Usage: /is config <reload>");
+                			return true;
+            			}
+            		} else {
+            			sender.sendMessage(ChatColor.RED + "You must be a server operator to use this command.");
+            			return true;
+            		}
+        		} else if (args[0].equalsIgnoreCase("allowreset")) {
+        			if (sender.isOp()) {
+        				if (args.length > 1) {
+        					UUID tuuid;
+        					Player t = getServer().getPlayer(args[1]);
+        					if (t != null) {
+        						tuuid = t.getUniqueId();
+        					} else {
+        						OfflinePlayer ot = getServer().getOfflinePlayer(args[1]);
+        						tuuid = ot.getUniqueId();
+        					}
+        					if (tuuid != null) {
+        						int tid = getPlayerId(tuuid);
+        						islandSettings.get(tid).set(0,true);
+                    			sender.sendMessage(ChatColor.GREEN + "The player can now reset their island again.");
+                    			return true;
+        					}
+        				} else {
+                			sender.sendMessage(ChatColor.RED + "Usage: /is allowreset <player>");
+                			return true;
+        				}
+        			} else {
+            			sender.sendMessage(ChatColor.RED + "You must be a server operator to use this command.");
+            			return true;
+            		}
+        		} else {
+            		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Unknown command. Type \'/is help\' for a list of commands.");
             		return true;
-            	} 
+            	}
         	} else {
         		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
 	            return true;
         	}
         } else if (command.getName().equalsIgnoreCase("bal") || command.getName().equalsIgnoreCase("balance")) {
-        	if (USE_ECONOMY) {
+        	if (config.getBoolean("USE_ECONOMY")) {
 	        	if (sender instanceof Player) {
 	        		if (args.length == 0) {
 		        		Player p = (Player) sender;
-		        		int pId = getPlayerId(p.getUniqueId());
+		        		Economy econ = new Economy(p.getUniqueId(), data);
 		        		DecimalFormat dec = new DecimalFormat("#0.00");
-						sender.sendMessage("Balance: " + ChatColor.GREEN + "$" + dec.format(balances.get(pId)));
+						sender.sendMessage("Balance: " + ChatColor.GREEN + "$" + dec.format(econ.get()));
 		        		return true;
 	        		} else {
 	        			Player p = getServer().getPlayer(args[0]);
-	        			int pId;
+		        		Economy econ;
 	        			String pName;
 	        			if (p != null) {
-	    	        		pId = getPlayerId(p.getUniqueId());
+	    	        		econ = new Economy(p.getUniqueId(), data);
 	    	        		pName = p.getName();
 	        			} else {
 	        				OfflinePlayer op = Bukkit.getOfflinePlayer(args[0]);
-	        				pId = getPlayerId(op.getUniqueId());
+	    	        		econ = new Economy(op.getUniqueId(), data);
 	        				pName = op.getName();
 	        			}
 		        		DecimalFormat dec = new DecimalFormat("#0.00");
-		        		Double balance = balances.get(pId);
-		        		if (balance == null) {
-		        			balance = 0.0;
-		        		}
-						sender.sendMessage("Balance of " + pName + ": " + ChatColor.GREEN + "$" + dec.format(balance));
+						sender.sendMessage("Balance of " + pName + ": " + ChatColor.GREEN + "$" + dec.format(econ.get()));
 	        			return true;
 	        		}
 	        	} else {
@@ -837,10 +798,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		return true;
         	}
         } else if (command.getName().equalsIgnoreCase("pay")) {
-        	if (USE_ECONOMY) {
+        	if (config.getBoolean("USE_ECONOMY")) {
 	        	if (sender instanceof Player) {
 	        		Player p = (Player) sender;
-	        		int pId = getPlayerId(p.getUniqueId());
 	        		if (args.length > 1) {
 	        			Player r = getServer().getPlayer(args[0]);
 	        			if (r != null) {
@@ -851,10 +811,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        					sender.sendMessage(ChatColor.RED + "That\'s not a valid amount of money!");
 	        			        return true;
 	        			    }
-	        				if (payAmount <= balances.get(pId) && payAmount > 0) {
-	        					balances.set(pId, balances.get(pId) - payAmount);
-	        					int rId = getPlayerId(r.getUniqueId());
-	        					balances.set(rId, balances.get(rId) + payAmount);
+	        			    Economy pecon = new Economy(p.getUniqueId(), data);
+	        				if (payAmount <= pecon.get() && payAmount > 0) {
+	        					pecon.withdraw(payAmount);
+	        					Economy recon = new Economy(r.getUniqueId(), data);
+	        					recon.deposit(payAmount);
 	        	        		DecimalFormat dec = new DecimalFormat("#0.00");
 	        					sender.sendMessage(ChatColor.GREEN + "Sent $" + dec.format(payAmount) + " to " + r.getName() + " successfully.");
 	        					r.sendMessage(ChatColor.GREEN + "Received $" + dec.format(payAmount) + " from " + p.getName() + ".");
@@ -901,7 +862,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		return true;
         	}
         } else if (command.getName().equalsIgnoreCase("shout")) {
-        	if (USE_CHATROOMS) {
+        	if (config.getBoolean("USE_CHATROOMS")) {
 	        	if (args.length > 0) {
 	        		String m = "";
 	        		for (int i = 0; i < args.length; i++) {
@@ -920,74 +881,25 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		sender.sendMessage(ChatColor.RED + "Chatrooms are disabled.");
         	}
         } else if (command.getName().equalsIgnoreCase("trade")) {
-        	if (USE_ECONOMY) {
+        	if (config.getBoolean("USE_ECONOMY")) {
 	        	if (sender instanceof Player) {
 	        		Player p = (Player) sender;
 		        	if (args.length > 0) {
 		        		int pId = getPlayerId(p.getUniqueId());
 	        			Player t = getServer().getPlayer(args[0]);
-		        		if (args[0].equalsIgnoreCase("accept") || (t != null && t.getUniqueId().toString().equalsIgnoreCase(tradingRequests.get(pId)))) {
-		        			String r = tradingRequests.get(pId);
-		        			if (r != null) {
-		        				t = getServer().getPlayer(UUID.fromString(r));
+	        			TradeRequest trec = getTradeRequest(p,t);
+		        		if (args[0].equalsIgnoreCase("accept") || (trec != null && trec.from() == t)) {
+		        			if (trec == null) {
+		        				trec = getTradeRequestToPlayer(p);
+		        			}
+		        			if (trec != null) {
+		        				t = trec.from();
 		        				if (t != null && t != p) {
 		        					if (p.getLocation().distance(t.getLocation()) < 10) {
-			        					tradingRequests.set(pId, null);
-			        					Inventory tradeMenu = Bukkit.createInventory(null, 54, ChatColor.DARK_GREEN + "Trade");
-			        					// Close menu button
-			        					ItemStack closeMenu = new ItemStack(Material.BARRIER, 1);
-			        					ItemMeta closeMeta = closeMenu.getItemMeta();
-			        					closeMeta.setDisplayName(ChatColor.RED + "Close Menu");
-			        					closeMenu.setItemMeta(closeMeta);
-			        					tradeMenu.setItem(49, closeMenu);
-			        					// Grey glass borders
-			        					Material glassMat;
-			        					if (Material.matchMaterial("160") == null) {
-			        						glassMat = Material.getMaterial("STAINED_GLASS_PANE");
-			        					} else {
-			        						glassMat = Material.matchMaterial("160");
-			        					}
-			        					// all done for the sake of backwards compatibility :D
-			        					ItemStack glassBorder = new ItemStack(glassMat, 1, (short)7);
-			        					ItemMeta glassBorderMeta = glassBorder.getItemMeta();
-			        					glassBorderMeta.setDisplayName(" ");
-			        					glassBorder.setItemMeta(glassBorderMeta);
-			        					for (int i = 0; i < 54; i++) {
-			        						if (i != 49 && ((i >= 0 && i <= 8) || (i % 9 == 0 || i % 9 == 8 || i % 9 == 4) || (i >= 45))) {
-			        							tradeMenu.setItem(i, glassBorder);
-			        						}
-			        					}
-			        					// Accept buttons
-			        					Material acceptMat;
-			        					if (Material.matchMaterial("351") == null) {
-			        						acceptMat = Material.getMaterial("INK_SACK");
-			        					} else {
-			        						acceptMat = Material.matchMaterial("351");
-			        					}
-			        					ItemStack acceptButton = new ItemStack(acceptMat, 1, (short)10);
-			        					ItemMeta acceptButtonMeta = acceptButton.getItemMeta();
-			        					acceptButtonMeta.setDisplayName(ChatColor.GREEN + "Accept Trade");
-			        					acceptButton.setItemMeta(acceptButtonMeta);
-			        					tradeMenu.setItem(39, acceptButton);
-			        					tradeMenu.setItem(41, acceptButton);
-			        					// Gold buttons
-			        					Material moneyMat;
-			        					if (Material.matchMaterial("266") == null) {
-			        						moneyMat = Material.getMaterial("GOLD_INGOT");
-			        					} else {
-			        						moneyMat = Material.matchMaterial("266");
-			        					}
-			        					ItemStack moneyButton = new ItemStack(moneyMat, 1);
-			        					ItemMeta moneyButtonMeta = moneyButton.getItemMeta();
-			        					moneyButtonMeta.setDisplayName(ChatColor.GREEN + "Money: $0.00");
-			                    		List<String> lore = Arrays.asList(ChatColor.GRAY + "Shift left click: +$100", ChatColor.GRAY + "Shift right click: -$100", ChatColor.GRAY + "Left click: +$1", ChatColor.GRAY + "Right click: -$1");
-			                    		moneyButtonMeta.setLore(lore);
-			        					moneyButton.setItemMeta(moneyButtonMeta);
-			        					tradeMenu.setItem(37, moneyButton);
-			        					tradeMenu.setItem(43, moneyButton);
-			        					p.openInventory(tradeMenu);
-			        					t.openInventory(tradeMenu);
-			        					openTrades.add(t.getUniqueId().toString() + ":" + p.getUniqueId().toString());
+			        					Trade trade = new Trade(p, t);
+			        					trade.open();
+			        					trec.close();
+			        					openTrades.add(trade);
 			        					return true;
 		        					} else {
 			        					sender.sendMessage(ChatColor.RED + "You aren't close enough to trade!");
@@ -1009,11 +921,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		        		} else {
 		        			if (t != null && t != p) {
 	        					if (p.getLocation().distance(t.getLocation()) < 10) {
-			        				int tId = getPlayerId(t.getUniqueId());
-	        						if (tradingRequests.get(tId) == null || !tradingRequests.get(tId).equalsIgnoreCase(p.getUniqueId().toString())) {
-				        				t.sendMessage(ChatColor.GREEN + sender.getName() + " has requested to trade with you. Type \"/trade accept\" to trade with them.");
-				        				sender.sendMessage(ChatColor.GREEN + "You have successfully requested to trade with " + t.getName() + ".");
-				        				tradingRequests.set(tId, p.getUniqueId().toString()); 
+			        				TradeRequest trt = getTradeRequestToPlayer(t);
+	        						if (trt == null || trt.from() != p) {
+				        				TradeRequest treq = new TradeRequest(p,t,this);
+				        				tradingRequests.add(treq);
 				        				return true;
 	        						} else {
 	        							sender.sendMessage(ChatColor.RED + "You have already requested to trade with this player!");
@@ -1065,32 +976,34 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    				!((bX > p1X && bX < p2X) && (bZ > p1Z && bZ < p2Z))
 	    			) {
 	    				e.setCancelled(true);
-	    			} else {
-	    				Double addPts = 0.0;
-	    				for (int i = 0; i < LEVEL_PTS.size(); i++) {
-            				String btype = LEVEL_PTS.get(i).split(":")[0];
-            				Double bpts = Double.valueOf(LEVEL_PTS.get(i).split(":")[1]);
-            				if (btype.equalsIgnoreCase("Default")) {
-            					addPts = bpts;
-            				} else {
-            					Material bmat = Material.getMaterial(btype);
-            					if (bmat != null && e.getBlock().getType() == bmat) {
-            						addPts = bpts;
-            					} else if (bmat == null) {
-            						getLogger().severe("Unknown block at ADD_PTS \"" + btype + "\"");
-            					}
-            				}
-	    				}
-	    				if (islandLeader.get(pId) == null) {
-	    					islandPts.set(pId, islandPts.get(pId)+addPts);
-	    				} else {
-	    					int lId = getPlayerId(UUID.fromString(islandLeader.get(pId)));
-	    					islandPts.set(lId, islandPts.get(lId)+addPts);
-	    				}
 	    			}
 	    		} else {
 	    			e.setCancelled(true);
 	    		}
+    		}
+    		if (!e.isCancelled()) {
+				Double addPts = 0.0;
+				List<String> LEVEL_PTS = config.getStringList("LEVEL_PTS");
+				for (int i = 0; i < LEVEL_PTS.size(); i++) {
+    				String btype = LEVEL_PTS.get(i).split(":")[0];
+    				Double bpts = Double.valueOf(LEVEL_PTS.get(i).split(":")[1]);
+    				if (btype.equalsIgnoreCase("Default")) {
+    					addPts = bpts;
+    				} else {
+    					Material bmat = XMaterial.matchXMaterial(btype).parseMaterial();
+    					if (bmat != null && e.getBlock().getType() == bmat) {
+    						addPts = bpts;
+    					} else if (bmat == null) {
+    						getLogger().severe("Unknown block at ADD_PTS \"" + btype + "\"");
+    					}
+    				}
+				}
+				if (islandLeader.get(pId) == null) {
+					islandPts.set(pId, islandPts.get(pId)+addPts);
+				} else {
+					int lId = getPlayerId(UUID.fromString(islandLeader.get(pId)));
+					islandPts.set(lId, islandPts.get(lId)+addPts);
+				}
     		}
     	}
     }
@@ -1113,32 +1026,34 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        				!((bX > p1X && bX < p2X) && (bZ > p1Z && bZ < p2Z))
 	        			) {
 	    				e.setCancelled(true);
-	    			} else {
-	    				Double addPts = 0.0;
-	    				for (int i = 0; i < LEVEL_PTS.size(); i++) {
-            				String btype = LEVEL_PTS.get(i).split(":")[0];
-            				Double bpts = Double.valueOf(LEVEL_PTS.get(i).split(":")[1]);
-            				if (btype.equalsIgnoreCase("Default")) {
-            					addPts = bpts;
-            				} else {
-            					Material bmat = Material.getMaterial(btype);
-            					if (bmat != null && e.getBlock().getType() == bmat) {
-            						addPts = bpts;
-            					} else if (bmat == null) {
-            						getLogger().severe("Unknown block at ADD_PTS \"" + btype + "\"");
-            					}
-            				}
-	    				}
-	    				if (islandLeader.get(pId) == null) {
-	    					islandPts.set(pId, islandPts.get(pId)+addPts);
-	    				} else {
-	    					int lId = getPlayerId(UUID.fromString(islandLeader.get(pId)));
-	    					islandPts.set(lId, islandPts.get(lId)+addPts);
-	    				}
 	    			}
 	    		} else {
 	    			e.setCancelled(true);
 	    		}
+    		}
+    		if (!e.isCancelled()) {
+				Double addPts = 0.0;
+				List<String> LEVEL_PTS = config.getStringList("LEVEL_PTS");
+				for (int i = 0; i < LEVEL_PTS.size(); i++) {
+    				String btype = LEVEL_PTS.get(i).split(":")[0];
+    				Double bpts = Double.valueOf(LEVEL_PTS.get(i).split(":")[1]);
+    				if (btype.equalsIgnoreCase("Default")) {
+    					addPts = bpts;
+    				} else {
+    					Material bmat = XMaterial.matchXMaterial(btype).parseMaterial();
+    					if (bmat != null && e.getBlock().getType() == bmat) {
+    						addPts = bpts;
+    					} else if (bmat == null) {
+    						getLogger().severe("Unknown block at ADD_PTS \"" + btype + "\"");
+    					}
+    				}
+				}
+				if (islandLeader.get(pId) == null) {
+					islandPts.set(pId, islandPts.get(pId)-addPts);
+				} else {
+					int lId = getPlayerId(UUID.fromString(islandLeader.get(pId)));
+					islandPts.set(lId, islandPts.get(lId)-addPts);
+				}
     		}
     	}
     }
@@ -1167,6 +1082,81 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    		}
     		}
     	}
+    	if (!e.isCancelled() && config.getBoolean("BONEMEAL_DOES_MORE") && config.getBoolean("USE_CUSTOM_MECHANICS")) {
+			if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK) && e.getHand().equals(EquipmentSlot.HAND)) {
+				if (b.getType() == XMaterial.DIRT.parseMaterial() && b.getRelative(BlockFace.UP).getType() != XMaterial.WATER.parseMaterial()) {
+					if (p.getItemInHand().getType() == XMaterial.BONE_MEAL.parseMaterial()) {
+						e.setCancelled(true);
+						if (p.getGameMode() != GameMode.CREATIVE) {
+							p.getItemInHand().setAmount(p.getItemInHand().getAmount()-1);
+						}
+						int rand = (int) Math.round(Math.random()*31);
+						if (rand == 0) {
+							b.setType(XMaterial.GRASS_BLOCK.parseMaterial());
+						}
+						skyWorld.playEffect(b.getLocation(), Effect.VILLAGER_PLANT_GROW, 0);
+					}
+				} else if ((b.getType() == XMaterial.DIRT.parseMaterial() || b.getType() == XMaterial.GRASS_BLOCK.parseMaterial()) && b.getRelative(BlockFace.UP).getType() == XMaterial.WATER.parseMaterial()) {
+					if (p.getItemInHand().getType() == XMaterial.BONE_MEAL.parseMaterial()) {
+						Block r = b.getRelative(BlockFace.UP);
+						int rand = (int) Math.round(Math.random()*7);
+						if (rand == 0) {
+							byte trand = (byte) Math.round(Math.random());
+							ItemStack toDrop = null;
+							if (trand == 0) {
+								if (XMaterial.KELP.parseMaterial() != null) {
+									toDrop = new ItemStack(XMaterial.KELP.parseMaterial(),1);
+								}
+							} else if (trand == 1) {
+								if (XMaterial.SEA_PICKLE.parseMaterial() != null) {
+									toDrop = new ItemStack(XMaterial.SEA_PICKLE.parseMaterial(),1);
+								}
+							}
+							if (toDrop != null) {
+								e.setCancelled(true);
+								skyWorld.dropItem(r.getLocation(), toDrop);
+								skyWorld.playEffect(b.getLocation(), Effect.VILLAGER_PLANT_GROW, 0);
+							}
+						}
+					}
+				} else if (b.getType() == XMaterial.GRASS_BLOCK.parseMaterial()) {
+					if (p.getItemInHand().getType() == XMaterial.BONE_MEAL.parseMaterial()) {
+						Block r = b.getRelative(BlockFace.UP);
+						if (r.getType() == XMaterial.AIR.parseMaterial()) {
+							int rand = (int) Math.round(Math.random()*7);
+							if (rand == 0) {
+								e.setCancelled(true);
+								byte trand = (byte) Math.round(Math.random()*9);
+								ItemStack toDrop = null;
+								if (trand == 1) {
+									toDrop = XMaterial.OAK_SAPLING.parseItem();
+								} else if (trand == 2) {
+									toDrop = XMaterial.JUNGLE_SAPLING.parseItem();
+								} else if (trand == 3) {
+									toDrop = XMaterial.DARK_OAK_SAPLING.parseItem();
+								} else if (trand == 4) {
+									toDrop = XMaterial.BIRCH_SAPLING.parseItem();
+								} else if (trand == 5) {
+									toDrop = XMaterial.ACACIA_SAPLING.parseItem();
+								} else if (trand == 6) {
+									toDrop = XMaterial.PUMPKIN_SEEDS.parseItem();
+								} else if (trand == 7) {
+									toDrop = XMaterial.MELON_SEEDS.parseItem();
+								} else if (trand == 8) {
+									toDrop = XMaterial.BEETROOT_SEEDS.parseItem();
+								} else if (trand == 9) {
+									toDrop = XMaterial.BAMBOO.parseItem();
+								}
+								if (toDrop != null) {
+									skyWorld.dropItem(r.getLocation(), toDrop);
+									skyWorld.playEffect(b.getLocation(), Effect.VILLAGER_PLANT_GROW, 0);
+								}
+							}
+						}
+					}
+				}
+			}
+    	}
     }
     
     @EventHandler
@@ -1191,9 +1181,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            		// make it so people cant hurt mobs on other people's islands
 		            		e.setCancelled(true);
 		            	} else {
-		            		if (e.getEntity() instanceof LivingEntity && USE_ECONOMY) {
+		            		if (e.getEntity() instanceof LivingEntity && config.getBoolean("USE_ECONOMY")) {
 			            		if (edbeEvent.getDamage() >= ((LivingEntity)e.getEntity()).getHealth()) {
 			            			double getMoney = 0;
+			            			List<String> KILL_MONEY = config.getStringList("KILL_MONEY");
 			            			for (int i = 0; i < KILL_MONEY.size(); i++) {
 			            				String etype = KILL_MONEY.get(i).split(":")[0];
 			            				Double emoney = Double.valueOf(KILL_MONEY.get(i).split(":")[1]);
@@ -1216,9 +1207,16 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            					}
 			            				}
 			            			}
-				            		balances.set(pId, balances.get(pId)+getMoney);
-				    	    		DecimalFormat dec = new DecimalFormat("#0.00");
-				            		p.sendMessage(ChatColor.GREEN + "You earned $" + dec.format(getMoney) + " for killing a " + e.getEntity().getType().getName().replace("_", " ") + ".");
+			            			if (getMoney != 0) {
+			            				Economy econ = new Economy(p.getUniqueId(), data);
+			            				econ.deposit(getMoney);
+				            			DecimalFormat dec = new DecimalFormat("#0.00");
+				            			if (getMoney > 0) {
+				            				p.sendMessage(ChatColor.GREEN + "You earned $" + dec.format(getMoney) + " for killing a " + e.getEntity().getType().getName().replace("_", " ") + ".");
+				            			} else {
+				            				p.sendMessage(ChatColor.RED + "You lost $" + dec.format(getMoney) + " for killing a " + e.getEntity().getType().getName().replace("_", " ") + ".");
+				            			}
+			            			}
 			            		}
 			            	}
 		            	}
@@ -1244,7 +1242,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     public void onPlayerJoin(PlayerJoinEvent e) {
     	Player p = e.getPlayer();
     	if (p != null) {
-    		if (DISABLE_PLAYER_COLLISIONS) {
+    		if (config.getBoolean("DISABLE_PLAYER_COLLISIONS")) {
     			noCollideAddPlayer(p);
     		}
     		if (toClear.indexOf(p.getUniqueId().toString()) > -1) {
@@ -1256,6 +1254,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            toClear.set(toClear.indexOf(p.getUniqueId().toString()), null);
 	            saveData();
     		}
+    		int pId = getPlayerId(p.getUniqueId());
+    		getLogger().info("Skyblock ID of " + p.getName() + " is " + pId);
     	}
     }
     
@@ -1271,19 +1271,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            BlockFace.WEST
 		        };
 	        Material type = e.getBlock().getType();
-	        if(type == Material.LAVA)
+	        if(type == XMaterial.LAVA.parseMaterial())
 	        {
 	            Block b = e.getToBlock();
 	            Material toid = b.getType();
-	            if (toid == Material.AIR) {
+	            if (toid == XMaterial.AIR.parseMaterial()) {
 	            	for (BlockFace face : faces) {
 	            		Block r = b.getRelative(face, 1);
-	            		if (r.getType() == Material.WATER) {
+	            		if (r.getType() == XMaterial.WATER.parseMaterial()) {
 	            			e.setCancelled(true);
-	            			if (GENERATE_ORES) {
+	            			if (config.getBoolean("GENERATE_ORES")) {
 								double oreType = Math.random() * 100.0;
+								List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
 							    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
-							    	Material itemMat = Material.getMaterial(GENERATOR_ORES.get(i).split(":")[0]);
+							    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).parseMaterial();
 							    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
 							    	if (itemMat != null) {
 							    		oreType -= itemChance;
@@ -1296,8 +1297,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 							    	}
 							    }
 	            			}
-						    if (b.getType() == Material.AIR) {
-						    	b.setType(Material.COBBLESTONE);
+						    if (b.getType() == XMaterial.AIR.parseMaterial()) {
+						    	b.setType(XMaterial.COBBLESTONE.parseMaterial());
 						    }
 						    
 						    Location bLoc = b.getLocation();
@@ -1308,13 +1309,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 								Location p2 = islandP2.get(pId);
 								if (p1.getBlockX() < bLoc.getBlockX() && bLoc.getBlockX() < p2.getBlockX() && p1.getBlockZ() < bLoc.getBlockZ() && bLoc.getBlockZ() < p2.getBlockZ()) {
 									Double addPts = 0.0;
+									List<String> LEVEL_PTS = config.getStringList("LEVEL_PTS");
 				    				for (int ii = 0; ii < LEVEL_PTS.size(); ii++) {
 			            				String btype = LEVEL_PTS.get(ii).split(":")[0];
 			            				Double bpts = Double.valueOf(LEVEL_PTS.get(ii).split(":")[1]);
 			            				if (btype.equalsIgnoreCase("Default")) {
 			            					addPts = bpts;
 			            				} else {
-			            					Material bmat = Material.getMaterial(btype);
+			            					Material bmat = XMaterial.matchXMaterial(btype).parseMaterial();
 			            					if (bmat != null && b.getType() == bmat) {
 			            						addPts = bpts;
 			            					} else if (bmat == null) {
@@ -1367,7 +1369,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent e) {
 		Player p = e.getPlayer();
-		if (VOID_INSTANT_DEATH && p.getLocation().getY() < -10) {
+		if (config.getBoolean("VOID_INSTANT_DEATH") && p.getLocation().getY() < -10) {
 			p.sendMessage(ChatColor.RED + "You fell into the void.");
 			if (p.getBedSpawnLocation() != null) {
 				p.teleport(p.getBedSpawnLocation(), TeleportCause.PLUGIN);
@@ -1383,12 +1385,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			p.setHealth(p.getMaxHealth());
 			p.setFoodLevel(20);
 			p.setFallDistance(0);
-			int pId = getPlayerId(p.getUniqueId());
-			if (balances.get(pId) != null && USE_ECONOMY) {
-				Double loss = balances.get(pId) / 2;
+			if (config.getBoolean("USE_ECONOMY")) {
+				Economy econ = new Economy(p.getUniqueId(), data);
+				Double loss = econ.get() / 2;
 	    		DecimalFormat dec = new DecimalFormat("#0.00");
 				p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
-				balances.set(pId, loss);
+				econ.set(loss);
 			}
 			if (skyWorld.getGameRuleValue("keepInventory") != "true") {
 				p.getInventory().clear();
@@ -1402,12 +1404,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		Entity ent = e.getEntity();
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
-			int pId = getPlayerId(p.getUniqueId());
-			if (balances.get(pId) != null && USE_ECONOMY) {
-				Double loss = balances.get(pId) / 2;
+			if (config.getBoolean("USE_ECONOMY")) {
+				Economy econ = new Economy(p.getUniqueId(), data);
+				Double loss = econ.get() / 2;
 	    		DecimalFormat dec = new DecimalFormat("#0.00");
 				p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
-				balances.set(pId, loss);
+				econ.set(loss);
 			}
 		}
 	}
@@ -1431,7 +1433,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerChat(AsyncPlayerChatEvent e) {
-		if (USE_CHATROOMS) {
+		if (config.getBoolean("USE_CHATROOMS")) {
 			Player p = e.getPlayer();
 			int pId = getPlayerId(p.getUniqueId());
 			if (islandP1.get(pId) != null) {
@@ -1468,21 +1470,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	@EventHandler
 	private void onInventoryClick(InventoryClickEvent e) {
         Player p = (Player) e.getWhoClicked();
-		Material acceptMat;
-		if (Material.matchMaterial("351") == null) {
-			acceptMat = Material.getMaterial("INK_SACK");
-		} else {
-			acceptMat = Material.matchMaterial("351");
-		}
-		ItemStack acceptButtonU = new ItemStack(acceptMat, 1, (short)10);
+		ItemStack acceptButtonU = XMaterial.LIME_DYE.parseItem();
 		ItemMeta acceptMetaU = acceptButtonU.getItemMeta();
 		acceptMetaU.setDisplayName(ChatColor.GREEN + "Accept Trade");
 		acceptButtonU.setItemMeta(acceptMetaU);
         if (e.getView().getTitle().equalsIgnoreCase(ChatColor.DARK_GREEN + "Trade") && !(e.getClickedInventory() == p.getInventory()) && !(p == null)) {
-            String activeTrade = getActiveTrade(p.getUniqueId());
-            Player p1 = getServer().getPlayer(UUID.fromString(activeTrade.split(":")[0]));
-            Player p2 = getServer().getPlayer(UUID.fromString(activeTrade.split(":")[1]));
-    		if (((e.getSlot() % 9 >= 1 && e.getSlot() % 9 <= 3 && p == p2) || (e.getSlot() % 9 >= 5 && e.getSlot() % 9 <= 7 && p == p1))) {
+            Trade activeTrade = getActiveTrade(p.getUniqueId());
+    		if (((e.getSlot() % 9 >= 1 && e.getSlot() % 9 <= 3 && p == activeTrade.getPlayer2()) || (e.getSlot() % 9 >= 5 && e.getSlot() % 9 <= 7 && p == activeTrade.getPlayer1()))) {
         		e.setCancelled(true);
         	} else if (e.getCurrentItem() != null) {
 	        	String itemName = e.getCurrentItem().getItemMeta().getDisplayName();
@@ -1490,8 +1484,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        		e.setCancelled(true);
 	        	} else if (itemName.equalsIgnoreCase(ChatColor.RED + "Close Menu")) {
 	        		e.setCancelled(true);
-        			Inventory p1Inventory = p1.getInventory();
-        			Inventory p2Inventory = p2.getInventory();
+        			Inventory p1Inventory = activeTrade.getPlayer1().getInventory();
+        			Inventory p2Inventory = activeTrade.getPlayer2().getInventory();
         			for (int i = 0; i < 45; i++) {
         				if (i % 9 >= 1 && i % 9 <= 3 && i > 9 && i < 36 && i != 39) {
         					if (e.getInventory().getItem(i) != null) {
@@ -1505,23 +1499,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         				}
         			}
         			closeTrade(activeTrade);
-        			p1.closeInventory();
-        			p2.closeInventory();
-        			p1.sendMessage(ChatColor.RED + "The trade has been cancelled.");
-        			p2.sendMessage(ChatColor.RED + "The trade has been cancelled.");
+        			activeTrade.getPlayer1().sendMessage(ChatColor.RED + "The trade has been cancelled.");
+        			activeTrade.getPlayer2().sendMessage(ChatColor.RED + "The trade has been cancelled.");
 	        	} else if (e.getSlot() == 39 || e.getSlot() == 41) {
             		e.setCancelled(true);
-            		Material aM;
-					if (Material.matchMaterial("351") == null) {
-						aM = Material.getMaterial("INK_SACK");
-					} else {
-						aM = Material.matchMaterial("351");
-					}
-					ItemStack acceptButton = new ItemStack(aM, 1, (short)2);
+					ItemStack acceptButton = XMaterial.GREEN_DYE.parseItem();
 					ItemMeta acceptMeta = acceptButton.getItemMeta();
 					acceptMeta.setDisplayName(ChatColor.GREEN + "Accepted!");
 					acceptButton.setItemMeta(acceptMeta);
-            		if (p == p1) {
+            		if (p == activeTrade.getPlayer1()) {
             			if (itemName.equalsIgnoreCase(ChatColor.GREEN + "Accept Trade")) {
             				e.getInventory().setItem(39, acceptButton);
             			} else {
@@ -1540,8 +1526,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
 		    				public void run() {
 		    					if (e.getInventory().getItem(39).getAmount() == 1 && e.getInventory().getItem(41).getAmount() == 1 && e.getInventory().getItem(39).getItemMeta().getDisplayName().equalsIgnoreCase(ChatColor.GREEN + "Accepted!") && e.getInventory().getItem(41).getItemMeta().getDisplayName().equalsIgnoreCase(ChatColor.GREEN + "Accepted!") && getActiveTrade(p.getUniqueId()) != null) {
-		                			Inventory p1Inventory = p1.getInventory();
-		                			Inventory p2Inventory = p2.getInventory();
+		                			Inventory p1Inventory = activeTrade.getPlayer1().getInventory();
+		                			Inventory p2Inventory = activeTrade.getPlayer2().getInventory();
 		                			for (int i = 0; i < 45; i++) {
 		                				if (i % 9 >= 1 && i % 9 <= 3 && i > 9 && i < 36 && i != 39) {
 		                					if (e.getInventory().getItem(i) != null) {
@@ -1556,17 +1542,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		                			}
 		        					double p1Money = Double.valueOf(e.getInventory().getItem(37).getItemMeta().getDisplayName().substring(10));
 		        					double p2Money = Double.valueOf(e.getInventory().getItem(43).getItemMeta().getDisplayName().substring(10));
-		        					int p1Id = getPlayerId(p1.getUniqueId());
-		        					int p2Id = getPlayerId(p2.getUniqueId());
-		        					balances.set(p1Id, balances.get(p1Id) + (p2Money - p1Money));
-		        					balances.set(p2Id, balances.get(p2Id) + (p1Money - p2Money));
+		        					Economy p1Econ = new Economy(activeTrade.getPlayer1().getUniqueId(), data);
+		        					Economy p2Econ = new Economy(activeTrade.getPlayer2().getUniqueId(), data);
+		        					p1Econ.set(p1Econ.get() + (p2Money - p1Money));
+		        					p2Econ.set(p2Econ.get() + (p1Money - p2Money));
 		                			closeTrade(activeTrade);
-		                			p1.closeInventory();
-		                			p2.closeInventory();
-		                			p1.sendMessage(ChatColor.GREEN + "The trade completed successfully.");
-		                			p2.sendMessage(ChatColor.GREEN + "The trade completed successfully.");
-		    					} else {
-		    						
+		                			activeTrade.getPlayer1().sendMessage(ChatColor.GREEN + "The trade completed successfully.");
+		                			activeTrade.getPlayer2().sendMessage(ChatColor.GREEN + "The trade completed successfully.");
 		    					}
 							}
             			}, 60);
@@ -1583,18 +1565,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			}
             		}
             	} else if (e.getSlot() == 37 || e.getSlot() == 43) {
-					Material moneyMat;
 					e.setCancelled(true);
-					if (Material.matchMaterial("266") == null) {
-						moneyMat = Material.getMaterial("GOLD_INGOT");
-					} else {
-						moneyMat = Material.matchMaterial("266");
-					}
-					ItemStack moneyButton = new ItemStack(moneyMat, 1);
+					ItemStack moneyButton = XMaterial.GOLD_INGOT.parseItem();
 					ItemMeta moneyButtonMeta = moneyButton.getItemMeta();
-					int pId = getPlayerId(p.getUniqueId());
+					Economy econ = new Economy(p.getUniqueId(), data);
 					double currentMoney = Double.valueOf(e.getCurrentItem().getItemMeta().getDisplayName().substring(10));
-					double currentBalance = balances.get(pId);
+					double currentBalance = econ.get();
 		    		DecimalFormat dec = new DecimalFormat("#0.00");
             		if (e.isLeftClick()) {
             			if (e.isShiftClick()) {
@@ -1636,26 +1612,26 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         			e.getInventory().setItem(41, acceptButtonU);
         			e.getInventory().setItem(39, acceptButtonU);
         			p.getInventory().addItem(e.getCurrentItem());
-        			e.getInventory().setItem(e.getSlot(), new ItemStack(Material.AIR,1));
+        			e.getInventory().setItem(e.getSlot(), new ItemStack(XMaterial.AIR.parseMaterial(),1));
             	}
         	}
         } else if (e.getClickedInventory() == p.getInventory() && e.getView().getTitle().equalsIgnoreCase(ChatColor.DARK_GREEN + "Trade")) {
-    		String activeTrade = getActiveTrade(p.getUniqueId());
-            Player p1 = getServer().getPlayer(UUID.fromString(activeTrade.split(":")[0]));
+    		Trade activeTrade = getActiveTrade(p.getUniqueId());
+            Player p1 = activeTrade.getPlayer1();
             e.setCancelled(true);
     		for (int i = 9; i < 36; i++) {
     			if (p == p1) {
     				if (i % 9 >= 1 && i % 9 <= 3) {
-    					if (e.getInventory().getItem(i) == null || e.getInventory().getItem(i).getType() == Material.AIR) {
+    					if (e.getInventory().getItem(i) == null || e.getInventory().getItem(i).getType() == XMaterial.AIR.parseMaterial()) {
     						e.getInventory().setItem(i, e.getCurrentItem());
-    						e.getClickedInventory().setItem(e.getSlot(), new ItemStack(Material.AIR,1));
+    						e.getClickedInventory().setItem(e.getSlot(), new ItemStack(XMaterial.AIR.parseMaterial(),1));
     					}
     				}
     			} else {
     				if (i % 9 >= 5 && i % 9 <= 7) {
-    					if (e.getInventory().getItem(i) == null || e.getInventory().getItem(i).getType() == Material.AIR) {
+    					if (e.getInventory().getItem(i) == null || e.getInventory().getItem(i).getType() == XMaterial.AIR.parseMaterial()) {
     						e.getInventory().setItem(i, e.getCurrentItem());
-    						e.getClickedInventory().setItem(e.getSlot(), new ItemStack(Material.AIR,1));
+    						e.getClickedInventory().setItem(e.getSlot(), new ItemStack(XMaterial.AIR.parseMaterial(),1));
     					}
     				}
     			}
@@ -1669,10 +1645,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	public void onInventoryClose(InventoryCloseEvent e) {
         Player p = (Player) e.getPlayer();
         if (e.getView().getTitle().equalsIgnoreCase(ChatColor.DARK_GREEN + "Trade") && !(p == null)) {
-            String activeTrade = getActiveTrade(p.getUniqueId());
+            Trade activeTrade = getActiveTrade(p.getUniqueId());
             if (activeTrade != null) {
-	            Player p1 = getServer().getPlayer(UUID.fromString(activeTrade.split(":")[0]));
-	            Player p2 = getServer().getPlayer(UUID.fromString(activeTrade.split(":")[1]));
+	            Player p1 = activeTrade.getPlayer1();
+	            Player p2 = activeTrade.getPlayer2();
 				Inventory p1Inventory = p1.getInventory();
 				Inventory p2Inventory = p2.getInventory();
 				for (int i = 0; i < 45; i++) {
@@ -1730,89 +1706,97 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		}
 	}
 	
-	public String getActiveTrade(UUID playerUUID) {
+	@EventHandler
+	public void onEntityExplode(EntityExplodeEvent e) {
+		if (config.getBoolean("BLAST_PROCESSING") && config.getBoolean("USE_CUSTOM_MECHANICS") && e.getLocation().getWorld() == skyWorld) {
+	        for (Block b : e.blockList()) {
+	            if(b.getType() == XMaterial.COBBLESTONE.parseMaterial()) {
+	                b.setType(XMaterial.GRAVEL.parseMaterial());
+	            } else if (b.getType() == XMaterial.GRAVEL.parseMaterial()) {
+	            	b.setType(XMaterial.SAND.parseMaterial());
+	            }
+	        }
+		}
+	}
+	
+	@EventHandler
+	public void onBlockBurn(BlockBurnEvent e) {
+		if (config.getBoolean("COBBLE_HEATING") && config.getBoolean("USE_USTOM_MECHANICS") && e.getBlock().getWorld() == skyWorld) {
+			Block b = e.getBlock();
+			Block c = b.getRelative(BlockFace.UP);
+			if (b.getType() == XMaterial.COAL_BLOCK.parseMaterial() && c.getType() == XMaterial.COBBLESTONE.parseMaterial()) {
+				e.setCancelled(true);
+				b.setType(XMaterial.AIR.parseMaterial());
+				double rand = (Math.random()*100);
+				if (rand < 10) {
+					c.setType(XMaterial.LAVA.parseMaterial());
+				}
+			}
+		}
+	}
+	
+	public Trade getActiveTrade(UUID playerUUID) {
 		for (int i = 0; i < openTrades.size(); i++) {
-			if (openTrades.get(i) != null && openTrades.get(i).contains(playerUUID.toString())) {
+			if (openTrades.get(i) != null && openTrades.get(i).hasPlayer(playerUUID)) {
 				return openTrades.get(i);
 			}
 		}
 		return null;
 	}
     
-    public void closeTrade(String _key) {
-    	openTrades.set(openTrades.indexOf(_key), null);
+    public void closeTrade(Trade activeTrade) {
+    	openTrades.set(openTrades.indexOf(activeTrade), null);
+    	activeTrade.close();
     }
     
     public void saveData() {
-    	if (!config.isSet("WORLD")) {
-    		config.set("WORLD", "world");
-    	}
-    	config.set("CHAT_PREFIX", CHAT_PREFIX);
-    	config.set("ISLAND_HEIGHT", ISLAND_HEIGHT);
-    	config.set("ISLAND_WIDTH", ISLAND_WIDTH);
-    	config.set("ISLAND_DEPTH", ISLAND_DEPTH);
-    	config.set("LIMIT_X", limX);
-    	config.set("LIMIT_Z", limZ);
-    	config.set("STARTING_MONEY", STARTING_MONEY);
-    	config.set("GENERATE_ORES", GENERATE_ORES);
-    	config.set("INFINITE_RESETS", INFINITE_RESETS);
-    	config.set("USE_CHATROOMS", USE_CHATROOMS);
-    	config.set("USE_ECONOMY", USE_ECONOMY);
-    	config.set("VOID_INSTANT_DEATH", VOID_INSTANT_DEATH);
-    	config.set("DISABLE_PLAYER_COLLISIONS", DISABLE_PLAYER_COLLISIONS);
-    	config.set("CHEST_ITEMS", CHEST_ITEMS);
-    	config.set("GENERATOR_ORES", GENERATOR_ORES);
-    	config.set("KILL_MONEY", KILL_MONEY);
-    	config.set("LEVEL_PTS", LEVEL_PTS);
     	for (int i = 0; i < players.size(); i++) {
     		if (islandP1.get(i) != null) {
-		    	config.set("data.players." + players.get(i) + ".islandP1.x", islandP1.get(i).getBlockX());
-		    	config.set("data.players." + players.get(i) + ".islandP1.y", islandP1.get(i).getBlockY());
-		    	config.set("data.players." + players.get(i) + ".islandP1.z", islandP1.get(i).getBlockZ());
+		    	data.set("data.players." + players.get(i) + ".islandP1.x", islandP1.get(i).getBlockX());
+		    	data.set("data.players." + players.get(i) + ".islandP1.y", islandP1.get(i).getBlockY());
+		    	data.set("data.players." + players.get(i) + ".islandP1.z", islandP1.get(i).getBlockZ());
     		} else {
-		    	config.set("data.players." + players.get(i) + ".islandP1.x", null);
-		    	config.set("data.players." + players.get(i) + ".islandP1.y", null);
-		    	config.set("data.players." + players.get(i) + ".islandP1.z", null);
+		    	data.set("data.players." + players.get(i) + ".islandP1.x", null);
+		    	data.set("data.players." + players.get(i) + ".islandP1.y", null);
+		    	data.set("data.players." + players.get(i) + ".islandP1.z", null);
     		}
     		if (islandP2.get(i) != null) {
-		    	config.set("data.players." + players.get(i) + ".islandP2.x", islandP2.get(i).getBlockX());
-		    	config.set("data.players." + players.get(i) + ".islandP2.y", islandP2.get(i).getBlockY());
-		    	config.set("data.players." + players.get(i) + ".islandP2.z", islandP2.get(i).getBlockZ());
+		    	data.set("data.players." + players.get(i) + ".islandP2.x", islandP2.get(i).getBlockX());
+		    	data.set("data.players." + players.get(i) + ".islandP2.y", islandP2.get(i).getBlockY());
+		    	data.set("data.players." + players.get(i) + ".islandP2.z", islandP2.get(i).getBlockZ());
     		} else {
-		    	config.set("data.players." + players.get(i) + ".islandP2.x", null);
-		    	config.set("data.players." + players.get(i) + ".islandP2.y", null);
-		    	config.set("data.players." + players.get(i) + ".islandP2.z", null);
+		    	data.set("data.players." + players.get(i) + ".islandP2.x", null);
+		    	data.set("data.players." + players.get(i) + ".islandP2.y", null);
+		    	data.set("data.players." + players.get(i) + ".islandP2.z", null);
     		}
     		if (islandHome.get(i) != null) {
-		    	config.set("data.players." + players.get(i) + ".islandHome.x", islandHome.get(i).getX());
-		    	config.set("data.players." + players.get(i) + ".islandHome.y", islandHome.get(i).getY());
-		    	config.set("data.players." + players.get(i) + ".islandHome.z", islandHome.get(i).getZ());
-		    	config.set("data.players." + players.get(i) + ".islandHome.pitch", (int)islandHome.get(i).getPitch());
-		    	config.set("data.players." + players.get(i) + ".islandHome.yaw", (int)islandHome.get(i).getYaw());
+		    	data.set("data.players." + players.get(i) + ".islandHome.x", islandHome.get(i).getX());
+		    	data.set("data.players." + players.get(i) + ".islandHome.y", islandHome.get(i).getY());
+		    	data.set("data.players." + players.get(i) + ".islandHome.z", islandHome.get(i).getZ());
+		    	data.set("data.players." + players.get(i) + ".islandHome.pitch", (int)islandHome.get(i).getPitch());
+		    	data.set("data.players." + players.get(i) + ".islandHome.yaw", (int)islandHome.get(i).getYaw());
     		} else {
-		    	config.set("data.players." + players.get(i) + ".islandHome.x", null);
-		    	config.set("data.players." + players.get(i) + ".islandHome.y", null);
-		    	config.set("data.players." + players.get(i) + ".islandHome.z", null);
-		    	config.set("data.players." + players.get(i) + ".islandHome.pitch", null);
-		    	config.set("data.players." + players.get(i) + ".islandHome.yaw", null);
+		    	data.set("data.players." + players.get(i) + ".islandHome.x", null);
+		    	data.set("data.players." + players.get(i) + ".islandHome.y", null);
+		    	data.set("data.players." + players.get(i) + ".islandHome.z", null);
+		    	data.set("data.players." + players.get(i) + ".islandHome.pitch", null);
+		    	data.set("data.players." + players.get(i) + ".islandHome.yaw", null);
     		}
     		if (islandSettings.get(i) != null) {
-    			config.set("data.players." + players.get(i) + ".settings.resetLeft", islandSettings.get(i).get(0));
-    			config.set("data.players." + players.get(i) + ".settings.allowsVisitors", islandSettings.get(i).get(1));
+    			data.set("data.players." + players.get(i) + ".settings.resetLeft", islandSettings.get(i).get(0));
+    			data.set("data.players." + players.get(i) + ".settings.allowsVisitors", islandSettings.get(i).get(1));
     		} else {
-    			config.set("data.players." + players.get(i) + ".settings.resetLeft", null);
-    			config.set("data.players." + players.get(i) + ".settings.allowsVisitors", null);
+    			data.set("data.players." + players.get(i) + ".settings.resetLeft", null);
+    			data.set("data.players." + players.get(i) + ".settings.allowsVisitors", null);
     		}
-    		config.set("data.players." + players.get(i) + ".balance", balances.get(i));
-    		config.set("data.players." + players.get(i) + ".islandLeader", islandLeader.get(i));
-    		config.set("data.players." + players.get(i) + ".islandMembers", islandMembers.get(i));
-    		config.set("data.players." + players.get(i) + ".islandPts", islandPts.get(i));
+    		data.set("data.players." + players.get(i) + ".islandLeader", islandLeader.get(i));
+    		data.set("data.players." + players.get(i) + ".islandMembers", islandMembers.get(i));
+    		data.set("data.players." + players.get(i) + ".islandPts", islandPts.get(i));
     	}
-    	config.set("data.nextIsland.x", nextIsland.getBlockX());
-    	config.set("data.nextIsland.y", nextIsland.getBlockY());
-    	config.set("data.nextIsland.z", nextIsland.getBlockZ());
-    	config.set("data.toClear", toClear);
-    	saveConfig();
+    	data.set("data.nextIsland.x", nextIsland.getBlockX());
+    	data.set("data.nextIsland.y", nextIsland.getBlockY());
+    	data.set("data.nextIsland.z", nextIsland.getBlockZ());
+    	data.set("data.toClear", toClear);
     }
 
 	public void generateIsland(Location loc, Player p) {
@@ -1874,16 +1858,17 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 							) {
 						Block currentBlock = skyWorld.getBlockAt(x, y, z);
 	    				if (y == y2 - 1) {
-	    					currentBlock.setType(Material.GRASS);
+	    					currentBlock.setType(XMaterial.GRASS_BLOCK.parseMaterial());
 	    				} else if (x == x1 + 2 && z == z1 + 2 && y > y1) {
-	    					currentBlock.setType(Material.SAND);
+	    					currentBlock.setType(XMaterial.SAND.parseMaterial());
 	    				} else if (y == y1) {
-	    					currentBlock.setType(Material.BEDROCK);
+	    					currentBlock.setType(XMaterial.BEDROCK.parseMaterial());
 	    				} else if (y < y1 + 3) {
-	    					if (GENERATE_ORES) { // spice things up
+	    					if (config.getBoolean("GENERATE_ORES")) { // spice things up
 	    						double oreType = Math.random() * 100.0;
+	    						List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
 	    					    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
-	    					    	Material itemMat = Material.getMaterial(GENERATOR_ORES.get(i).split(":")[0]);
+	    					    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).parseMaterial();
 	    					    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
 	    					    	if (itemMat != null) {
 	    					    		oreType -= itemChance;
@@ -1895,14 +1880,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    					    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
 	    					    	}
 	    					    }
-	    					    if (currentBlock.getType() == Material.AIR) {
-	    					    	currentBlock.setType(Material.COBBLESTONE);
+	    					    if (currentBlock.getType() == XMaterial.AIR.parseMaterial()) {
+	    					    	currentBlock.setType(XMaterial.COBBLESTONE.parseMaterial());
 	    					    }
 	    					} else {
-	    						currentBlock.setType(Material.DIRT);
+	    						currentBlock.setType(XMaterial.DIRT.parseMaterial());
 	    					}
 	    				} else {
-	    					currentBlock.setType(Material.DIRT);
+	    					currentBlock.setType(XMaterial.DIRT.parseMaterial());
 	    				}
 					}
 				}
@@ -1914,12 +1899,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		Location spawnLoc = new Location(skyWorld,x1+2,y2+1,z1);
 		Location homeLoc = new Location(skyWorld,x1+2.5,y2,z1+.5);
 		skyWorld.generateTree(treeLoc, TreeType.TREE);
-		skyWorld.getBlockAt(spawnLoc).setType(Material.AIR);
-		skyWorld.getBlockAt(chestLoc).setType(Material.CHEST);
+		skyWorld.getBlockAt(spawnLoc).setType(XMaterial.AIR.parseMaterial());
+		skyWorld.getBlockAt(chestLoc).setType(XMaterial.CHEST.parseMaterial());
 		Chest chest = (Chest) skyWorld.getBlockAt(chestLoc).getState();
 	    Inventory chestinv = chest.getBlockInventory();
+	    List<String> CHEST_ITEMS = config.getStringList("CHEST_ITEMS");
 	    for(int i = 0; i < CHEST_ITEMS.size(); i++) {
-	    	Material itemMat = Material.getMaterial(CHEST_ITEMS.get(i).split(":")[0]);
+	    	Material itemMat = XMaterial.matchXMaterial(CHEST_ITEMS.get(i).split(":")[0]).parseMaterial();
 	    	int itemCnt = Integer.parseInt(CHEST_ITEMS.get(i).split(":")[1]);
 	    	if (itemMat != null) {
 	    		chestinv.addItem(new ItemStack(itemMat,itemCnt));
@@ -1935,8 +1921,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    
 	    // set values
 	    int pId = getPlayerId(p.getUniqueId());
-	    islandP1.set(pId, new Location(skyWorld,x1-(ISLAND_WIDTH/2),0,z1-(ISLAND_DEPTH/2)));
-	    islandP2.set(pId, new Location(skyWorld,x1+(ISLAND_WIDTH/2),skyWorld.getMaxHeight(),z1+(ISLAND_DEPTH/2)));
+	    islandP1.set(pId, new Location(skyWorld,x1-(config.getInt("ISLAND_WIDTH")/2),0,z1-(config.getInt("ISLAND_DEPTH")/2)));
+	    islandP2.set(pId, new Location(skyWorld,x1+(config.getInt("ISLAND_WIDTH")/2),skyWorld.getMaxHeight(),z1+(config.getInt("ISLAND_DEPTH")/2)));
 	    islandHome.set(pId, homeLoc);
 	    if (islandSettings.get(pId).get(0) == null) { // resets left
 	    	islandSettings.get(pId).set(0, true);
@@ -1944,14 +1930,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    	islandSettings.get(pId).set(0, false);
 	    }
 	    islandSettings.get(pId).set(1, true); // allow visitors
-	    balances.set(pId, STARTING_MONEY);
+	    Economy econ = new Economy(p.getUniqueId(), data);
+	    econ.set(config.getDouble("STARTING_MONEY"));
 	    islandPts.set(pId, 100.0);
 	    
 	    // set next island location
-	    if (x1 < limX) {
-	    	nextIsland = new Location(skyWorld, x1+ISLAND_WIDTH, ISLAND_HEIGHT, z1);
+	    if (x1 < config.getInt("LIMIT_X")) {
+	    	nextIsland = new Location(skyWorld, x1+config.getInt("ISLAND_WIDTH"), config.getInt("ISLAND_HEIGHT"), z1);
 	    } else {
-	    	nextIsland = new Location(skyWorld, -limX, ISLAND_HEIGHT, z1+ISLAND_DEPTH);
+	    	nextIsland = new Location(skyWorld, -config.getInt("LIMIT_X"), config.getInt("ISLAND_HEIGHT"), z1+config.getInt("ISLAND_DEPTH"));
 	    }
 	    
 	    // save new set data
@@ -1966,58 +1953,54 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		
 		int pId = players.indexOf(uuid.toString());
 	    while (pId == -1) {
-	    	if (config.isSet("data.players." + uuid.toString())) {
+	    	if (data.isSet("data.players." + uuid.toString())) {
 	    		players.add(uuid.toString());
-	    		if (config.isSet("data.players." + uuid.toString() + ".islandP1.x")) {
+	    		if (data.isSet("data.players." + uuid.toString() + ".islandP1.x")) {
 		    		islandP1.add(new Location(
 		    				skyWorld,
-		    				config.getInt("data.players." + uuid.toString() + ".islandP1.x"),
-		    				config.getInt("data.players." + uuid.toString() + ".islandP1.y"),
-		    				config.getInt("data.players." + uuid.toString() + ".islandP1.z")));
+		    				data.getInt("data.players." + uuid.toString() + ".islandP1.x"),
+		    				data.getInt("data.players." + uuid.toString() + ".islandP1.y"),
+		    				data.getInt("data.players." + uuid.toString() + ".islandP1.z")));
 	    		} else {
 	    			islandP1.add(null);
 	    		}
-	    		if (config.isSet("data.players." + uuid.toString() + ".islandP2.x")) {
+	    		if (data.isSet("data.players." + uuid.toString() + ".islandP2.x")) {
 		    		islandP2.add(new Location(
 		    				skyWorld,
-		    				config.getInt("data.players." + uuid.toString() + ".islandP2.x"),
-		    				config.getInt("data.players." + uuid.toString() + ".islandP2.y"),
-		    				config.getInt("data.players." + uuid.toString() + ".islandP2.z")));
+		    				data.getInt("data.players." + uuid.toString() + ".islandP2.x"),
+		    				data.getInt("data.players." + uuid.toString() + ".islandP2.y"),
+		    				data.getInt("data.players." + uuid.toString() + ".islandP2.z")));
 	    		} else {
 	    			islandP2.add(null);
 	    		}
-	    		if (config.isSet("data.players." + uuid.toString() + ".islandHome.x")) {
+	    		if (data.isSet("data.players." + uuid.toString() + ".islandHome.x")) {
 		    		islandHome.add(new Location(
 		    				skyWorld,
-		    				config.getDouble("data.players." + uuid.toString() + ".islandHome.x"),
-		    				config.getDouble("data.players." + uuid.toString() + ".islandHome.y"),
-		    				config.getDouble("data.players." + uuid.toString() + ".islandHome.z"),
-		    				config.getInt("data.players." + uuid.toString() + ".islandHome.yaw"),
-		    				config.getInt("data.players." + uuid.toString() + ".islandHome.pitch")));
+		    				data.getDouble("data.players." + uuid.toString() + ".islandHome.x"),
+		    				data.getDouble("data.players." + uuid.toString() + ".islandHome.y"),
+		    				data.getDouble("data.players." + uuid.toString() + ".islandHome.z"),
+		    				data.getInt("data.players." + uuid.toString() + ".islandHome.yaw"),
+		    				data.getInt("data.players." + uuid.toString() + ".islandHome.pitch")));
 	    		} else {
 	    			islandHome.add(null);
 	    		}
-	    		balances.add(config.getDouble("data.players." + uuid.toString() + ".balance"));
 	    		islandSettings.add(new ArrayList<Boolean>());
-	    		islandSettings.get(islandSettings.size()-1).add(config.getBoolean("data.players." + uuid.toString() + ".settings.resetLeft"));
-	    		islandSettings.get(islandSettings.size()-1).add(config.getBoolean("data.players." + uuid.toString() + ".settings.allowsVisitors"));
-	    		islandLeader.add(config.getString("data.players." + uuid.toString() + ".islandLeader"));
+	    		islandSettings.get(islandSettings.size()-1).add(data.getBoolean("data.players." + uuid.toString() + ".settings.resetLeft"));
+	    		islandSettings.get(islandSettings.size()-1).add(data.getBoolean("data.players." + uuid.toString() + ".settings.allowsVisitors"));
+	    		islandLeader.add(data.getString("data.players." + uuid.toString() + ".islandLeader"));
 	    		invites.add(null);
-	    		tradingRequests.add(null);
-	    		islandMembers.add(config.getStringList("data.players." + uuid.toString() + ".islandMembers"));
-	    		islandPts.add(config.getDouble("data.players." + uuid.toString() + ".islandPts"));
+	    		islandMembers.add(data.getStringList("data.players." + uuid.toString() + ".islandMembers"));
+	    		islandPts.add(data.getDouble("data.players." + uuid.toString() + ".islandPts"));
 	    	} else {
 		    	players.add(uuid.toString());
 		    	islandP1.add(null);
 		    	islandP2.add(null);
 		    	islandHome.add(null);
-		    	balances.add(null);
 	    		islandSettings.add(new ArrayList<Boolean>());
 	    		islandSettings.get(islandSettings.size()-1).add(null); // resets left
 	    		islandSettings.get(islandSettings.size()-1).add(null); // allows visitors
 	    		islandLeader.add(null);
 	    		invites.add(null);
-	    		tradingRequests.add(null);
 	    		islandMembers.add(new ArrayList<String>());
 	    		islandPts.add(0.0);
 	    	}
@@ -2032,12 +2015,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		List<Location> tislandP1 = new ArrayList<Location>();
 		List<Location> tislandP2 = new ArrayList<Location>();
 		List<Location> tislandHome = new ArrayList<Location>();
-		List<Double> tbalances = new ArrayList<Double>();
 		List<List<Boolean>> tislandSettings = new ArrayList<List<Boolean>>();
 		List<Integer> tinvites = new ArrayList<Integer>();
 		List<String> tislandLeader = new ArrayList<String>();
 		List<List<String>> tislandMembers = new ArrayList<List<String>>();
-		List<String> ttradingRequests = new ArrayList<String>();
 		for (int i = 0; i < players.size(); i++) {
 			UUID tempP = UUID.fromString(players.get(i));
 			if (getServer().getPlayer(tempP) != null) {
@@ -2045,24 +2026,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				tislandP1.add(islandP1.get(i));
 				tislandP2.add(islandP2.get(i));
 				tislandHome.add(islandHome.get(i));
-				tbalances.add(balances.get(i));
 				tislandSettings.add(islandSettings.get(i));
 				tinvites.add(invites.get(i));
 				tislandLeader.add(islandLeader.get(i));
 				tislandMembers.add(islandMembers.get(i));
-				ttradingRequests.add(tradingRequests.get(i));
 			}
 		}
 		players = tplayers;
 		islandP1 = tislandP1;
 		islandP2 = tislandP2;
 		islandHome = tislandHome;
-		balances = tbalances;
 		islandSettings = tislandSettings;
 		invites = tinvites;
 		islandLeader = tislandLeader;
 		islandMembers = tislandMembers;
-		tradingRequests = ttradingRequests;
 	}
 	
     public static void noCollideAddPlayer(Player p) {
@@ -2083,5 +2060,57 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		}
     	}
     	return actualLength;
+    }
+    
+    public void loadConfig() {
+    	this.reloadConfig();
+    }
+    
+    public void convertConfig(String _old, String _new) {
+    	if (_old == "1.2.0" && _new == "1.2.1") {
+    		ConfigurationSection oldData = (ConfigurationSection) config.get("data");
+    		data.set("data", oldData);
+    		config.set("data", null);
+    	}
+		config.set("config-version", _new);
+		this.saveConfig();
+    	try {
+			data.save(getDataFolder() + File.separator + "data.yml");
+		} catch (IOException e) {
+            Bukkit.getLogger().warning("§4Could not save data.yml file.");
+		}
+    }
+    
+    public TradeRequest getTradeRequestFromPlayer(Player p) {
+    	for (int i = 0; i < tradingRequests.size(); i++) {
+    		if (tradingRequests.get(i) != null && tradingRequests.get(i).isActive() && tradingRequests.get(i).from() == p) {
+    			return tradingRequests.get(i);
+    		} else if (tradingRequests.get(i) != null && !tradingRequests.get(i).isActive()) {
+    			tradingRequests.set(i, null);
+    		}
+    	}
+    	return null;
+    }
+    
+    public TradeRequest getTradeRequestToPlayer(Player p) {
+    	for (int i = tradingRequests.size() - 1; i >= 0; i--) {
+    		if (tradingRequests.get(i) != null && tradingRequests.get(i).isActive() && tradingRequests.get(i).to() == p) {
+    			return tradingRequests.get(i);
+    		} else if (tradingRequests.get(i) != null && !tradingRequests.get(i).isActive()) {
+    			tradingRequests.set(i, null);
+    		}
+    	}
+    	return null;
+    }
+    
+    public TradeRequest getTradeRequest(Player p, Player t) {
+    	for (int i = tradingRequests.size() - 1; i >= 0; i--) {
+    		if (tradingRequests.get(i) != null && tradingRequests.get(i).isActive() && ((tradingRequests.get(i).to() == p && tradingRequests.get(i).from() == t) || (tradingRequests.get(i).to() == t && tradingRequests.get(i).from() == p))) {
+    			return tradingRequests.get(i);
+    		} else if (tradingRequests.get(i) != null && !tradingRequests.get(i).isActive()) {
+    			tradingRequests.set(i, null);
+    		}
+    	}
+    	return null;
     }
 }
