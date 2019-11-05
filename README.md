@@ -26,31 +26,110 @@ Pay special attention when editing config.yml, because some of the settings requ
 
 # config.yml:
 ```
+# Welcome to the configuration of SimpleSkyblock!
+# Below are some of the customizable parts of
+# SimpleSkyblock! If you need something special, feel
+# free to send me an email at themanhimself@garet.holiday
+
+
+
+# +-------------------------------------------+
+# |       WORLD GENERATION / MANAGEMENT       |
+# +-------------------------------------------+
+
+# SimpleSkyblock is equipped with a world generator which
+# will generate a blank world with no blocks. To use it,
+# simply add the following to bukkit.yml:
+# worlds:
+#   [world name]:
+#     generator: SimpleSkyblock
+
+# To change the biome of the world generated, edit the
+# following line.
 BIOME: PLAINS
+
+# To change the name of the world which all skyblock islands
+# will generate, edit the line below. If the world doesn't
+# exist, we'll create a new one for you using SimpleSkyblock's
+# empty world generator.
 WORLD: world
-CHAT_PREFIX: §7[§bSKYBLOCK§7] §r
+
+# The height at which the islands will generate. This is the Y
+# value at which the bedrock block will be.
 ISLAND_HEIGHT: 70
+
+# The width of the claimed island plot. Changing this will
+# change the size of the claimed island plot in the X
+# direction. The negative-most block in the X will be half an
+# island width away from the island border. Islands will, by
+# default, have 1 block of no-man's land between them.
 ISLAND_WIDTH: 400
+
+# Island depth is the same as island width, but in the Z
+# direction.
 ISLAND_DEPTH: 400
+
+# The limits are how far SimpleSkyblock is allowed to generate
+# islands. The islands will generate in the following pattern:
+# The first island will generate at -LIMIT_X, -LIMIT_Z. Every
+# time a new island is generated, it will add an ISLAND_WIDTH
+# to the X value, until it hits LIMIT_X, after which it will
+# go back to -LIMIT_X and increment Z by one ISLAND_DEPTH.
 LIMIT_X: 25000
+
+# LIMIT_Z is the limit in which islands can generate in the
+# SimpleSkyblock world.
 LIMIT_Z: 25000
-STARTING_MONEY: 500.0
-GENERATE_ORES: true
-INFINITE_RESETS: false
-USE_CHATROOMS: true
-USE_ECONOMY: true
+
+
+
+# +------------------------------+
+# |       GENERAL SETTINGS       |
+# +------------------------------+
+
+# CHAT_PREFIX is the "name tag" for SimpleSkyblock when it
+# is speaking in the chat. Use '$' for color codes.
+CHAT_PREFIX: $7[$bSKYBLOCK$7] $r
+
+# VOID_INSTANT_DEATH toggles if players die instantly in the
+# void instead of slowly losing health.
 VOID_INSTANT_DEATH: true
+
+# DISABLE_PLAYER_COLLISIONS toggles player collisions. This
+# is active for the whole server, not just the skyblock
+# world.
 DISABLE_PLAYER_COLLISIONS: true
-CHEST_ITEMS:
-- LAVA_BUCKET:1
-- ICE:2
-- SUGAR_CANE:1
-- RED_MUSHROOM:1
-- BROWN_MUSHROOM:1
-- PUMPKIN_SEEDS:1
-- MELON:1
-- CACTUS:1
-- COBBLESTONE:16
+
+# USE_CHATROOMS defines whether to use SimpleSkyblock's
+# chatrooms. They create seperate channels for each island,
+# and allow only players with skyblock.shout permission to
+# talk to the whole server using /shout.
+USE_CHATROOMS: true
+
+# INFINITE_RESETS defines whether players can reset their
+# islands as much as they want. This can be exploited, so
+# island resets are generally limited. An operator can
+# allow an island reset by using /is allowreset <player>
+INFINITE_RESETS: false
+
+
+
+# +-----------------------------+
+# |       ISLAND SETTINGS       |
+# +-----------------------------+
+
+# GENERATE_ORES determines whether or not to generate ores
+# in the cobblestone generator instead of just cobblestone.
+# Enabling this will also generate ores on the bottom of
+# the island as well during island generation. This is
+# only active in the skyblock world.
+GENERATE_ORES: true
+
+# GENERATOR_ORES are the ores which will be generated,
+# along with the percent chance of generation. These do
+# not technically need to be ores. They must be formatted
+# as follows:
+# [BLOCK_NAME]:[PERCENT_CHANCE]
 GENERATOR_ORES:
 - COAL_ORE:2.5
 - IRON_ORE:2.5
@@ -62,6 +141,57 @@ GENERATOR_ORES:
 - OBSIDIAN:.05
 - STONE:45.875
 - COBBLESTONE:45.875
+
+# CHEST_ITEMS are the items that appear in the chest
+# that generates on the islands. They must be formatted
+# as [ITEM]:[AMOUNT]
+CHEST_ITEMS:
+- LAVA_BUCKET:1
+- ICE:2
+- SUGAR_CANE:1
+- RED_MUSHROOM:1
+- BROWN_MUSHROOM:1
+- PUMPKIN_SEEDS:1
+- MELON:1
+- CACTUS:1
+- COBBLESTONE:16
+
+# LEVEL_POINTS are the points which you players get
+# added towards their islands based on each block
+# placed, destroyed, or generated.
+# The island level is calculated using the following
+# formula:
+# l = sqrt(p)-9
+# where p is the amount of points an island has. Each
+# island starts with 100 points by default.
+# All other blocks not listed are calculated using
+# the value of 'Default'.
+LEVEL_PTS:
+- Default:1
+- COBBLESTONE:0.1
+- SAPLING:50
+
+
+
+# +------------------------------+
+# |       ECONOMY SETTINGS       |
+# +------------------------------+
+
+# USE_ECONOMY determines whether to use the
+# SimpleSkyblock economy to begin with. Changing
+# this will disable all economy features.
+USE_ECONOMY: true
+
+# STARTING_MONEY is the amount of money the players
+# receive when they start their islands.
+STARTING_MONEY: 500.0
+
+# KILL_MONEY is the amount of money that players
+# get for the mobs which they kill. They must be
+# formatted as follows:
+# [MOB]:[DOLLARS]
+# This additionally accepts values of 'Default',
+# 'Monster', and 'Animals'.
 KILL_MONEY:
 - Default:0
 - Monster:3
@@ -69,36 +199,55 @@ KILL_MONEY:
 - CREEPER:5
 - ENDERMAN:10
 - ZOMBIE:2
-LEVEL_PTS:
-- Default:1
-- COBBLESTONE:0.1
-- SAPLING:50
-data:
-  nextIsland:
-    x: -25000
-    y: 70
-    z: -25000
-  toClear: []
+
+
+
+# +--------------------------------+
+# |       MECHANICS SETTINGS       |
+# +--------------------------------+
+
+# USE_CUSTOM_MECHANICS determines whether to use
+# custom SimpleSkyblock mechanics, or whether to
+# keep it to just the basics. Setting this to false
+# will turn all below-listed mechanics settings
+# off.
+USE_CUSTOM_MECHANICS: true
+
+# BLAST_PROCESSING toggles whether items can be
+# blasted to create other materials. This includes
+# blasting cobble to get gravel and gravel to sand,
+# which were added to provide a way to get more
+# dirt which requires players to be creative.
+# These mechanics are removed when this is set to
+# false.
+BLAST_PROCESSING: true
+
+# BONEMEAL_DOES_MORE toggles whether to use custom
+# bonemeal mechanics or not. The custom mechanics
+# allow for the obtaining of saplings and seeds
+# through bonemealing grass, kelp and sea pickles
+# through bonemealing underwater dirt, and
+# bonemealing dirt to have it become grass. These
+# were all added to make plants, as well as grass
+# attainable (especially if grass is destroyed)
+BONEMEAL_DOES_MORE: true
+
+# COBBLE_HEATING toggles whether or not to use
+# custom cobble heating mechanics which allow lava
+# to be created by chance if coal blocks are burned
+# underneath a cobblestone block. This was added to
+# allow users to get more lava, but can be disabled
+# by setting this to false.
+COBBLE_HEATING: true
+
+
+
+# You survived! You made it through the entire
+# config! Good job, now don't edit this line, or
+# it might do some funky stuff.
+config-version: 1.2.1
   ```
 
-- "BIOME" is the biome which the empty world which is created will be. It must be one of the ones on this list, or it will throw a nasty error.
-- "WORLD" is the world in which Skyblock islands will generate.
-- "CHAT_PREFIX" is the prefix of skyblock in the chat. By default it is [SKYBLOCK] with some fancy colors.
-- "ISLAND_HEIGHT" is the height of the islands from the bottom of the world, has nothing to do with the plot claiming.
-- "ISLAND_WIDTH" and "ISLAND_DEPTH" will determine how big of a plot to claim. The island will be in the center
-- The limits ("LIMIT_X" and "LIMIT_Z" are how far in the world islands will generate. It will generate them row by row in the x direction, from -LIMIT_X to LIMIT_X, then -LIMIT_Z to LIMIT_Z
-- "STARTING_MONEY" is how much money a player starts with when they create an island. Players who join islands are not given money to prevent abuse.
-- "GENERATE_ORES" differentiates between the old style, all dirt islands, and new islands with stone and randomly generated ore. GENERATE_ORES will also make cobblestone generators generate the ores written under the GENERATOR_ORES section.
-- "INFINITE_RESETS" determines if users will be able to reset their island more than once.
-- "USE_CHATROOMS" choose whether to use island chatrooms, requiring users to /shout to speak to the whole world.
-- "USE_ECONOMY" choose whether to use the built-in skyblock economy, or use your own. This will disable everything related to the economy including trading.
-- "VOID_INSTANT_DEATH" determines whether players will instantly die when they hit the void.
-- "DISABLE_PLAYER_COLLISIONS" determines whether to use player collisions or not.
-- "CHEST_ITEMS" are the items that are put in the chests at island creation. They must be formatted as follows: [ITEM]:[AMOUNT] (ex. COBBLESTONE:16 will put a stack of 16 cobblestone in the chest). Here is a list of the material names this plugin uses if you are curious.
-- "GENERATOR_ORES" are the ores that are generated by the ore generators along with the chances of each ore to spawn. If they add up to more than 100, the ones past 100 will not be used, and if they add up to lest than 100, cobblestone will fill in the remainder. Used in island generation as well as cobble generation. Format it as [BLOCK]:[PERCENT CHANCE]. Here is a list of the material names this plugin uses if you are curious.
-- "KILL_MONEY" is how much money users receive when they kill mobs. Format it as [MOB]:[AMOUNT OF DOLLARS]. Here is a list of all the entity names this plugin uses. "Default" can be used to set the amount of money for all mobs not listed before it. "Monster" can be used for the default amount of money for monsters to give, while "Animals" does the same thing for animals. (Values of default, monster, and animals should be listed first to prevent overriding)
-- "LEVEL_PTS" is the amount of island points toward the island levels that are added per block build or removed per block destroy. The island level is calculated from the following equation: sqrt(x)-9, and islands start with 100 points. They must be formatted as [BLOCK]:[AMOUNT OF POINTS]. Here is a list of the material names this plugin uses if you are curious. "Default" can be used to set the value of everything not listed after. (Values of default should be listed first to prevent overriding)
-- "data" and all things under it are used by the plugin to determine island bounds and will constantly change. No need to edit these unless you have a serious problem and know what you are doing.
 # Special thanks to:
 - robertlit: helped with programming.
 - Rethink: helped translate the plugin into Chinese.
