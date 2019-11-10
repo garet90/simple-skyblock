@@ -22,57 +22,56 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-package holiday.garet.skyblock.economy;
+package holiday.garet.skyblock.island;
 
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import net.md_5.bungee.api.ChatColor;
-
-public class TradeRequest {
+public class IslandInvite {
 	
-	Player from;
-	Player to;
-	Boolean active = true;
+	Player player;
+	Island island;
+	Plugin plugin;
+	String senderName;
+	boolean isActive = true;
 
-	public TradeRequest(Player _from, Player _to, Plugin plugin) {
-		from = _from;
-		to = _to;
+	public IslandInvite(Player _player, Island _island, Plugin _plugin) {
+		player = _player;
+		island = _island;
+		plugin = _plugin;
+		senderName = plugin.getServer().getPlayer(island.getLeader()).getName();
+		player.sendMessage(ChatColor.GREEN + "You have been invited to join " + senderName + "\'s island. Type \'/is join " + senderName + "\' to join their island. This invite expires in 60 seconds! \n" + ChatColor.RED + "Warning: This will remove your old island!");
         new BukkitRunnable() {
         
             @Override
             public void run() {
             	if (isActive()) {
-	            	close();
-	            	if (to != null) {
-	            		to.sendMessage(ChatColor.RED + "The trade request from " + from.getName() + " has expired.");
-	            	}
-	            	if (from != null) {
-	            		from.sendMessage(ChatColor.RED + "The trade request to " + to.getName() + " has expired.");
+	            	setActive(false);
+	            	if (player != null) {
+	            		player.sendMessage(ChatColor.RED + "The invite from " + senderName + " has expired.");
 	            	}
             	}
             }
             
         }.runTaskLater(plugin, 1200L);
-        to.sendMessage(ChatColor.GREEN + "You have received a trade request from " + from.getName() + "! Type \"/trade accept " + from.getName() + "\" to trade with them. Warning: This request expires in 60 seconds!");
-        from.sendMessage(ChatColor.GREEN + "You have successfully sent a trade request to " + to.getName() + ".");
 	}
 	
-	public Boolean isActive() {
-		return active;
+	public boolean isActive() {
+		return isActive;
 	}
 	
-	public Player from() {
-		return from;
+	public void setActive(boolean _active) {
+		isActive = _active;
 	}
 	
-	public Player to() {
-		return to;
+	public Player getTo() {
+		return player;
 	}
 	
-	public void close() {
-		active = false;
+	public Island getIsland() {
+		return island;
 	}
 	
 }

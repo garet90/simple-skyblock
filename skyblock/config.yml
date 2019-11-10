@@ -35,11 +35,11 @@ ISLAND_HEIGHT: 70
 # direction. The negative-most block in the X will be half an
 # island width away from the island border. Islands will, by
 # default, have 1 block of no-man's land between them.
-ISLAND_WIDTH: 400
+ISLAND_WIDTH: 5000
 
 # Island depth is the same as island width, but in the Z
 # direction.
-ISLAND_DEPTH: 400
+ISLAND_DEPTH: 5000
 
 # The limits are how far SimpleSkyblock is allowed to generate
 # islands. The islands will generate in the following pattern:
@@ -47,11 +47,14 @@ ISLAND_DEPTH: 400
 # time a new island is generated, it will add an ISLAND_WIDTH
 # to the X value, until it hits LIMIT_X, after which it will
 # go back to -LIMIT_X and increment Z by one ISLAND_DEPTH.
-LIMIT_X: 25000
+LIMIT_X: 29990000
 
 # LIMIT_Z is the limit in which islands can generate in the
 # SimpleSkyblock world.
-LIMIT_Z: 25000
+LIMIT_Z: 29990000
+
+# The settings listed above allow for 35,976,004 islands, a
+# number I'd be suprised if you hit
 
 
 
@@ -103,16 +106,16 @@ GENERATE_ORES: true
 # as follows:
 # [BLOCK_NAME]:[PERCENT_CHANCE]
 GENERATOR_ORES:
-- COAL_ORE:2.5
-- IRON_ORE:2.5
+- COAL_ORE:5
+- IRON_ORE:7.5
 - GOLD_ORE:.2
 - DIAMOND_ORE:.2
 - LAPIS_ORE:.2
 - REDSTONE_ORE:1.5
 - EMERALD_ORE:.1
 - OBSIDIAN:.05
-- STONE:45.875
-- COBBLESTONE:45.875
+- STONE:42.125
+- COBBLESTONE:42.125
 
 # CHEST_ITEMS are the items that appear in the chest
 # that generates on the islands. They must be formatted
@@ -124,7 +127,7 @@ CHEST_ITEMS:
 - RED_MUSHROOM:1
 - BROWN_MUSHROOM:1
 - PUMPKIN_SEEDS:1
-- MELON:1
+- MELON_SLICE:1
 - CACTUS:1
 - COBBLESTONE:16
 
@@ -142,6 +145,11 @@ LEVEL_PTS:
 - Default:1
 - COBBLESTONE:0.1
 - SAPLING:50
+- DIAMOND_BLOCK:1000
+- EMERALD_BLOCK:750
+- IRON_BLOCK:100
+- REDSTONE_BLOCK:50
+- OBSIDIAN:75
 
 
 
@@ -171,6 +179,7 @@ KILL_MONEY:
 - CREEPER:5
 - ENDERMAN:10
 - ZOMBIE:2
+- SPIDER:4
 
 
 
@@ -217,4 +226,4 @@ COBBLE_HEATING: true
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.2.1
+config-version: 1.2.2
