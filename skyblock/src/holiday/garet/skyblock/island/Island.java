@@ -99,7 +99,7 @@ public class Island {
 	}
 	
 	public Boolean inBounds(Location _location) {
-		if (_location.getWorld() == world && _location.getX() >= p1.getX() && p2.getX() >= _location.getX() && _location.getZ() >= p1.getZ() && p2.getZ() >= _location.getZ()) {
+		if (_location.getX() >= p1.getX() && p2.getX() >= _location.getX() && _location.getZ() >= p1.getZ() && p2.getZ() >= _location.getZ()) {
 			return true;
 		}
 		return false;

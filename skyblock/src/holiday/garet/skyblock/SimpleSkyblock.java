@@ -115,6 +115,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	Location nextIsland;
 	
 	World skyWorld;
+	World skyNether;
 	
     @Override
     public void onEnable() {
@@ -135,7 +136,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	} else {
     		worldName = "world";
     	}
+    	if (worldName == "mrtest") {
+    		getLogger().info("OOGA BOOGA BOOGA!");
+    	}
     	skyWorld = getServer().getWorld(worldName);
+    	skyNether = getServer().getWorld(worldName + "_nether");
     	if (skyWorld == null) { // If we don't have a world generated yet
             BukkitScheduler scheduler = getServer().getScheduler();
             scheduler.scheduleSyncDelayedTask(this, new Runnable() {
@@ -145,6 +150,18 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	                wc.generator(new EmptyWorldGenerator());
 	                wc.createWorld();
 	                skyWorld = getServer().getWorld(worldName);
+                }
+            }, 0L);
+    	}
+    	if (skyNether == null && config.getBoolean("USE_NETHER")) { // If we don't have a world generated yet
+            BukkitScheduler scheduler = getServer().getScheduler();
+            scheduler.scheduleSyncDelayedTask(this, new Runnable() {
+                @Override
+                public void run() {
+                	WorldCreator wc = new WorldCreator(worldName + "_nether");
+	                wc.generator(new EmptyWorldGenerator());
+	                wc.createWorld();
+	                skyNether = getServer().getWorld(worldName + "_nether");
                 }
             }, 0L);
     	}
@@ -914,7 +931,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
     	if (p != null) {
-    		if (p.getWorld() == skyWorld && !(p.hasPermission("skyblock.admin"))) {
+    		if ((p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
 	    		if (playerIsland != null) {
 	    			if (!(playerIsland.inBounds(b.getLocation()))) {
 	    				e.setCancelled(true);
@@ -923,7 +940,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    			e.setCancelled(true);
 	    		}
     		}
-    		if (!e.isCancelled() && p.getWorld() == skyWorld) {
+    		if (!e.isCancelled() && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
     			if (playerIsland != null) {
 					Double addPts = 0.0;
 					List<String> LEVEL_PTS = config.getStringList("LEVEL_PTS");
@@ -953,7 +970,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
     	if (p != null) {
-    		if (p.getWorld() == skyWorld && !(p.hasPermission("skyblock.admin"))) {
+    		if ((p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
 	    		if (playerIsland != null) {
 	    			if (!(playerIsland.inBounds(b.getLocation()))) {
 	    				e.setCancelled(true);
@@ -962,7 +979,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    			e.setCancelled(true);
 	    		}
     		}
-    		if (!e.isCancelled() && p.getWorld() == skyWorld) {
+    		if (!e.isCancelled() && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
     			if (playerIsland != null) {
 					Double addPts = 0.0;
 					List<String> LEVEL_PTS = config.getStringList("LEVEL_PTS");
@@ -992,7 +1009,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
     	if (p != null && b != null) {
-    		if (p.getWorld() == skyWorld && !(p.hasPermission("skyblock.admin"))) {
+    		if ((p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
 	    		if (playerIsland != null) {
 	    			if (!(playerIsland.inBounds(b.getLocation()))) {
 	    				e.setCancelled(true);
@@ -1002,7 +1019,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    		}
     		}
     	}
-    	if (!e.isCancelled() && config.getBoolean("BONEMEAL_DOES_MORE") && config.getBoolean("USE_CUSTOM_MECHANICS") && p.getLocation().getWorld() == skyWorld) {
+    	if (!e.isCancelled() && config.getBoolean("BONEMEAL_DOES_MORE") && config.getBoolean("USE_CUSTOM_MECHANICS") && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
 			if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK) && e.getHand().equals(EquipmentSlot.HAND)) {
 				if (b.getType() == XMaterial.DIRT.parseMaterial() && b.getRelative(BlockFace.UP).getType() != XMaterial.WATER.parseMaterial()) {
 					if (p.getItemInHand().getType() == XMaterial.BONE_MEAL.parseMaterial()) {
@@ -1083,11 +1100,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onEntityDamage(EntityDamageEvent e) {
-    	if(e instanceof EntityDamageByEntityEvent && e.getEntity().getLocation().getWorld() == skyWorld){
+    	if(e instanceof EntityDamageByEntityEvent && (e.getEntity().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getEntity().getLocation().getWorld() == skyNether))){
 	        EntityDamageByEntityEvent edbeEvent = (EntityDamageByEntityEvent)e;
 	        if (edbeEvent.getDamager() instanceof Player){
 	            if (e.getEntity() instanceof Player) {
-	            	if (e.getEntity().getLocation().getWorld() == skyWorld && !(edbeEvent.getDamager().isOp())) {
+	            	if ((e.getEntity().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getEntity().getLocation().getWorld() == skyNether)) && !(edbeEvent.getDamager().isOp())) {
 	            		// make it so nobody can attack anybody on an island
 	            		e.setCancelled(true);
 	            	}
@@ -1193,7 +1210,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     @EventHandler
     public void onFromTo(BlockFromToEvent e)
     {
-    	if (e.getBlock().getWorld() == skyWorld) {
+    	if ((e.getBlock().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getBlock().getLocation().getWorld() == skyNether))) {
 	    	BlockFace[] faces = new BlockFace[]
 		        {
 		            BlockFace.NORTH,
@@ -1269,7 +1286,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     public void onPlayerPickupItem(PlayerPickupItemEvent e) {
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
-    	if ((p.getLocation().getWorld() == skyWorld) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
     		e.setCancelled(true);
     	}
     }
@@ -1278,7 +1295,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     public void onPlayerDropItem(PlayerDropItemEvent e) {
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
-    	if ((p.getLocation().getWorld() == skyWorld) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
     		e.setCancelled(true);
     	}
     }
@@ -1348,7 +1365,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerChat(AsyncPlayerChatEvent e) {
-		if (config.getBoolean("USE_CHATROOMS")) {
+		List<String> chatworlds = config.getStringList("CHAT_WORLDS");
+		Boolean useChat = false;
+		for (int i = 0; i < chatworlds.size(); i++) {
+			if (chatworlds.get(i).equalsIgnoreCase(e.getPlayer().getLocation().getWorld().getName()) || chatworlds.get(i).equalsIgnoreCase("*")) {
+				useChat = true;
+			}
+		}
+		if (config.getBoolean("USE_CHATROOMS") && useChat) {
 			Player p = e.getPlayer();
 			Island playerIsland = getPlayerIsland(p);
 			if (playerIsland != null) {
@@ -1380,7 +1404,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
 	    	SkyblockPlayer sp = getSkyblockPlayer(p);
-	    	if ((p.getLocation().getWorld() == skyWorld) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+	    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
 	    		if (!sp.getVisiting().getIsland().visitorsCanRideMobs()) {
 	    			e.setCancelled(true);
 	    		}
@@ -1391,7 +1415,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onEntityExplode(EntityExplodeEvent e) {
-		if (config.getBoolean("BLAST_PROCESSING") && config.getBoolean("USE_CUSTOM_MECHANICS") && e.getLocation().getWorld() == skyWorld) {
+		if (config.getBoolean("BLAST_PROCESSING") && config.getBoolean("USE_CUSTOM_MECHANICS") && (e.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getLocation().getWorld() == skyNether))) {
 	        for (Block b : e.blockList()) {
 	            if(b.getType() == XMaterial.COBBLESTONE.parseMaterial()) {
 	                b.setType(XMaterial.GRAVEL.parseMaterial());
@@ -1404,7 +1428,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onBlockBurn(BlockBurnEvent e) {
-		if (config.getBoolean("COBBLE_HEATING") && config.getBoolean("USE_USTOM_MECHANICS") && e.getBlock().getWorld() == skyWorld) {
+		if (config.getBoolean("COBBLE_HEATING") && config.getBoolean("USE_USTOM_MECHANICS") && (e.getBlock().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getBlock().getLocation().getWorld() == skyNether))) {
 			Block b = e.getBlock();
 			Block c = b.getRelative(BlockFace.UP);
 			if (b.getType() == XMaterial.COAL_BLOCK.parseMaterial() && c.getType() == XMaterial.COBBLESTONE.parseMaterial()) {
@@ -1420,10 +1444,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
-		Player p = e.getPlayer();
-		SkyblockPlayer sp = getSkyblockPlayer(p);
-		if (e.getCause() == TeleportCause.NETHER_PORTAL && p.getWorld() == skyWorld && (sp.getIsland() == null || !sp.getIsland().inBounds(p.getLocation()))) {
-			e.setCancelled(true);
+		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
+			Location newTo = e.getFrom();
+			if (newTo.getWorld() == skyWorld) {
+				newTo.setWorld(skyNether);
+				e.setTo(newTo);
+			} else if (newTo.getWorld() == skyNether) {
+				newTo.setWorld(skyWorld);
+				e.setTo(newTo);
+			}
 		}
 	}
     

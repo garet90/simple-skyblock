@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.World.Environment;
 import org.bukkit.block.Biome;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.generator.ChunkGenerator;
@@ -50,7 +51,11 @@ public class EmptyWorldGenerator extends ChunkGenerator {
         ChunkData chunk = createChunkData(world);
         for (int x = 0; x < 16; x++) {
         	for (int z = 0; z < 16; z++) {
-                biome.setBiome(x, z, b);
+        		if (world.getEnvironment() == Environment.NETHER) {
+        			biome.setBiome(x, z, Biome.NETHER);
+        		} else {
+        			biome.setBiome(x, z, b);
+        		}
         	}
         }
     	return chunk;

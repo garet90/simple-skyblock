@@ -64,7 +64,7 @@ LIMIT_Z: 29990000
 
 # CHAT_PREFIX is the "name tag" for SimpleSkyblock when it
 # is speaking in the chat. Use '$' for color codes.
-CHAT_PREFIX: $7[$bSKYBLOCK$7] $r
+CHAT_PREFIX: '$7[$bSKYBLOCK$7] $r'
 
 # VOID_INSTANT_DEATH toggles if players die instantly in the
 # void instead of slowly losing health.
@@ -78,14 +78,26 @@ DISABLE_PLAYER_COLLISIONS: true
 # USE_CHATROOMS defines whether to use SimpleSkyblock's
 # chatrooms. They create seperate channels for each island,
 # and allow only players with skyblock.shout permission to
-# talk to the whole server using /shout.
+# talk to the whole server using /shout. When this is
+# disabled, the server goes back to default chatting or
+# lets another plugin take over.
 USE_CHATROOMS: true
+
+# CHAT_WORLDS defines which worlds to use SimpleSkyblock's
+# chatrooms in. Using * will use the chatrooms for all
+# worlds.
+CHAT_WORLDS:
+- '*'
 
 # INFINITE_RESETS defines whether players can reset their
 # islands as much as they want. This can be exploited, so
 # island resets are generally limited. An operator can
 # allow an island reset by using /is allowreset <player>
 INFINITE_RESETS: false
+
+# USE_NETHER determines whether to allow players to have a
+# nether island.
+USE_NETHER: true
 
 
 
@@ -226,4 +238,4 @@ COBBLE_HEATING: true
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.2.2
+config-version: 1.3.0
