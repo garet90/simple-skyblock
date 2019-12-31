@@ -1543,9 +1543,27 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (config.getBoolean("BLAST_PROCESSING") && config.getBoolean("USE_CUSTOM_MECHANICS") && (e.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getLocation().getWorld() == skyNether))) {
 	        for (Block b : e.blockList()) {
 	            if(b.getType() == XMaterial.COBBLESTONE.parseMaterial()) {
-	                b.setType(XMaterial.GRAVEL.parseMaterial());
+	            	if (b.getWorld() == skyNether) {
+						double cr = Math.random() * 100.0;
+						if (cr < 50) {
+							b.setType(XMaterial.NETHERRACK.parseMaterial());
+						} else {
+							b.setType(XMaterial.GRAVEL.parseMaterial());
+						}
+	            	} else {
+	            		b.setType(XMaterial.GRAVEL.parseMaterial());
+	            	}
 	            } else if (b.getType() == XMaterial.GRAVEL.parseMaterial()) {
-	            	b.setType(XMaterial.SAND.parseMaterial());
+	            	if (b.getWorld() == skyNether) {
+						double cr = Math.random() * 100.0;
+						if (cr < 50) {
+							b.setType(XMaterial.GLOWSTONE.parseMaterial());
+						} else {
+							b.setType(XMaterial.SAND.parseMaterial());
+						}
+	            	} else {
+	            		b.setType(XMaterial.SAND.parseMaterial());
+	            	}
 	            }
 	        }
 		}
