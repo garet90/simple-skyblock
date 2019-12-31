@@ -1,0 +1,2 @@
+- robertlit: helped with programming.
+- Rethink: helped translate the plugin into Chinese.

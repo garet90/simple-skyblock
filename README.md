@@ -15,11 +15,14 @@ A simple Skyblock. Includes all the essentials, such as land protection, island 
 - skyblock.fly: includes /fly command
 - skyblock.shout: includes /shout commands
 - skyblock.trade: includes /trade commands
+- skyblock.admin: allows admin control of skyblock plugin (such as /is allowreset)
 ## Installation:
 Plop it into your plugins folder, then after first run you will be able to edit the config.yml to your liking. If you would like the Skyblock world to be your default world (the "level-name" declared in server.properties) you will need to add the following to "bukkit.yml"
 ```
 worlds:
   world:
+    generator: SimpleSkyblock
+  world_nether:
     generator: SimpleSkyblock
 ```
 If you want it to be a separate world, there is no need to add this to the bukkit.yml, and this will be handled for you automagically. You do not need a plugin like Multiverse, the world will be generated and players can travel to it without it. Plugins like Multiverse can still be used, just make sure to set the generator to SimpleSkyblock.
@@ -64,11 +67,11 @@ ISLAND_HEIGHT: 70
 # direction. The negative-most block in the X will be half an
 # island width away from the island border. Islands will, by
 # default, have 1 block of no-man's land between them.
-ISLAND_WIDTH: 400
+ISLAND_WIDTH: 5000
 
 # Island depth is the same as island width, but in the Z
 # direction.
-ISLAND_DEPTH: 400
+ISLAND_DEPTH: 5000
 
 # The limits are how far SimpleSkyblock is allowed to generate
 # islands. The islands will generate in the following pattern:
@@ -76,11 +79,14 @@ ISLAND_DEPTH: 400
 # time a new island is generated, it will add an ISLAND_WIDTH
 # to the X value, until it hits LIMIT_X, after which it will
 # go back to -LIMIT_X and increment Z by one ISLAND_DEPTH.
-LIMIT_X: 25000
+LIMIT_X: 29990000
 
 # LIMIT_Z is the limit in which islands can generate in the
 # SimpleSkyblock world.
-LIMIT_Z: 25000
+LIMIT_Z: 29990000
+
+# The settings listed above allow for 35,976,004 islands, a
+# number I'd be suprised if you hit
 
 
 
@@ -90,7 +96,7 @@ LIMIT_Z: 25000
 
 # CHAT_PREFIX is the "name tag" for SimpleSkyblock when it
 # is speaking in the chat. Use '$' for color codes.
-CHAT_PREFIX: $7[$bSKYBLOCK$7] $r
+CHAT_PREFIX: '$7[$bSKYBLOCK$7] $r'
 
 # VOID_INSTANT_DEATH toggles if players die instantly in the
 # void instead of slowly losing health.
@@ -104,14 +110,26 @@ DISABLE_PLAYER_COLLISIONS: true
 # USE_CHATROOMS defines whether to use SimpleSkyblock's
 # chatrooms. They create seperate channels for each island,
 # and allow only players with skyblock.shout permission to
-# talk to the whole server using /shout.
+# talk to the whole server using /shout. When this is
+# disabled, the server goes back to default chatting or
+# lets another plugin take over.
 USE_CHATROOMS: true
+
+# CHAT_WORLDS defines which worlds to use SimpleSkyblock's
+# chatrooms in. Using * will use the chatrooms for all
+# worlds.
+CHAT_WORLDS:
+- '*'
 
 # INFINITE_RESETS defines whether players can reset their
 # islands as much as they want. This can be exploited, so
 # island resets are generally limited. An operator can
 # allow an island reset by using /is allowreset <player>
 INFINITE_RESETS: false
+
+# USE_NETHER determines whether to allow players to have a
+# nether island.
+USE_NETHER: true
 
 
 
@@ -132,16 +150,16 @@ GENERATE_ORES: true
 # as follows:
 # [BLOCK_NAME]:[PERCENT_CHANCE]
 GENERATOR_ORES:
-- COAL_ORE:2.5
-- IRON_ORE:2.5
+- COAL_ORE:5
+- IRON_ORE:7.5
 - GOLD_ORE:.2
 - DIAMOND_ORE:.2
 - LAPIS_ORE:.2
 - REDSTONE_ORE:1.5
 - EMERALD_ORE:.1
 - OBSIDIAN:.05
-- STONE:45.875
-- COBBLESTONE:45.875
+- STONE:42.125
+- COBBLESTONE:42.125
 
 # CHEST_ITEMS are the items that appear in the chest
 # that generates on the islands. They must be formatted
@@ -153,7 +171,7 @@ CHEST_ITEMS:
 - RED_MUSHROOM:1
 - BROWN_MUSHROOM:1
 - PUMPKIN_SEEDS:1
-- MELON:1
+- MELON_SLICE:1
 - CACTUS:1
 - COBBLESTONE:16
 
@@ -171,6 +189,11 @@ LEVEL_PTS:
 - Default:1
 - COBBLESTONE:0.1
 - SAPLING:50
+- DIAMOND_BLOCK:1000
+- EMERALD_BLOCK:750
+- IRON_BLOCK:100
+- REDSTONE_BLOCK:50
+- OBSIDIAN:75
 
 
 
@@ -200,6 +223,7 @@ KILL_MONEY:
 - CREEPER:5
 - ENDERMAN:10
 - ZOMBIE:2
+- SPIDER:4
 
 
 
@@ -241,14 +265,15 @@ BONEMEAL_DOES_MORE: true
 # by setting this to false.
 COBBLE_HEATING: true
 
+# SOUL_SAND determines whether enemies killed on
+# sand in the skyblock nether will turn the sand
+# into soul sand.
+SOUL_SAND: true
+
 
 
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.2.1
+config-version: 1.3.0
   ```
-
-## Special thanks to
-- robertlit: helped with programming.
-- Rethink: helped translate the plugin into Chinese.
