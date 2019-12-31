@@ -57,6 +57,8 @@ public class Trade implements Listener {
 	Inventory menu;
 	Plugin plugin;
 	boolean active = true;
+	boolean usingVault = false;
+	net.milkbowl.vault.economy.Economy vaultEconomy = null;
 	
 	public Trade(Player _player1, Player _player2, Plugin _plugin, Economy _p1Econ, Economy _p2Econ) {
 		player1 = _player1;
@@ -64,6 +66,15 @@ public class Trade implements Listener {
 		plugin = _plugin;
 		p1Econ = _p1Econ;
 		p2Econ = _p2Econ;
+		createMenu();
+	}
+	
+	public Trade(Player _player1, Player _player2, Plugin _plugin, net.milkbowl.vault.economy.Economy _vaultEconomy) {
+		player1 = _player1;
+		player2 = _player2;
+		plugin = _plugin;
+		vaultEconomy = _vaultEconomy;
+		usingVault = true;
 		createMenu();
 	}
 	
@@ -216,8 +227,15 @@ public class Trade implements Listener {
 		                			}
 		        					double p1Money = Double.valueOf(e.getInventory().getItem(37).getItemMeta().getDisplayName().substring(10));
 		        					double p2Money = Double.valueOf(e.getInventory().getItem(43).getItemMeta().getDisplayName().substring(10));
-		        					p1Econ.set(p1Econ.get() + (p2Money - p1Money));
-		        					p2Econ.set(p2Econ.get() + (p1Money - p2Money));
+		        					if (usingVault) {
+		        						vaultEconomy.depositPlayer(player1, p2Money);
+		        						vaultEconomy.withdrawPlayer(player1, p1Money);
+		        						vaultEconomy.depositPlayer(player2, p1Money);
+		        						vaultEconomy.withdrawPlayer(player2, p2Money);
+		        					} else {
+			        					p1Econ.set(p1Econ.get() + (p2Money - p1Money));
+			        					p2Econ.set(p2Econ.get() + (p1Money - p2Money));
+		        					}
 		                			close();
 		                			player1.sendMessage(ChatColor.GREEN + "The trade completed successfully.");
 		                			player2.sendMessage(ChatColor.GREEN + "The trade completed successfully.");
@@ -244,14 +262,22 @@ public class Trade implements Listener {
 					ItemMeta moneyButtonMeta = moneyButton.getItemMeta();
 					Economy econ;
 					double currentMoney = 0.0;
+					double currentBalance;
 					if (p == player1) {
 						currentMoney = p1Money;
-						econ = p1Econ;
 					} else {
 						currentMoney = p2Money;
-						econ = p2Econ;
 					}
-					double currentBalance = econ.get();
+					if (usingVault) {
+						currentBalance = vaultEconomy.getBalance(p);
+					} else {
+						if (p == player1) {
+							econ = p1Econ;
+						} else {
+							econ = p2Econ;
+						}
+						currentBalance = econ.get();
+					}
 		    		DecimalFormat dec = new DecimalFormat("#0.00");
 	        		if (e.isLeftClick()) {
 	        			if (e.isShiftClick()) {

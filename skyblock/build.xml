@@ -7,6 +7,8 @@
             <fileset dir="bin"></fileset>
             <fileset file="plugin.yml"></fileset>
         	<fileset file="config.yml"></fileset>
+        	<fileset file="default.structure.yml"></fileset>
+        	<fileset file="nether.structure.yml"></fileset>
         </jar>
     </target>
 </project>

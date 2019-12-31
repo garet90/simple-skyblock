@@ -1,20 +1,21 @@
-# Description:
+# SimpleSkyblock [![Build Status](https://travis-ci.com/garet90/simple-skyblock.svg?branch=master)](https://travis-ci.com/garet90/simple-skyblock)
+## Description
 A simple Skyblock. Includes all the essentials, such as land protection, island generation, co-op, and more, along with some optional extras such as Economy, Trading, Island Chat Channels and more, all of which can be disabled for maximum customization.
 
-# Commands:
+## Commands
 - /island: Main command. Includes sub-commands such as /is help, /is visit [player], /is reset, /is home, /is sethome, /is settings (you can disable island visiting here)
 - /balance: Shows how much money a player has
 - /pay <player> <amount>: Pay a player some money
 - /fly: Enable / disable flying
 - /trade <player>: Trade with a player
 - /shout <message>: Shout to the whole server.
-# Permissions:
+## Permissions:
 - skyblock.island: includes all /island commands and subcommands
 - skyblock.economy: includes /balance and /pay commands
 - skyblock.fly: includes /fly command
 - skyblock.shout: includes /shout commands
 - skyblock.trade: includes /trade commands
-# Installation:
+## Installation:
 Plop it into your plugins folder, then after first run you will be able to edit the config.yml to your liking. If you would like the Skyblock world to be your default world (the "level-name" declared in server.properties) you will need to add the following to "bukkit.yml"
 ```
 worlds:
@@ -24,7 +25,7 @@ worlds:
 If you want it to be a separate world, there is no need to add this to the bukkit.yml, and this will be handled for you automagically. You do not need a plugin like Multiverse, the world will be generated and players can travel to it without it. Plugins like Multiverse can still be used, just make sure to set the generator to SimpleSkyblock.
 Pay special attention when editing config.yml, because some of the settings require specific values or they wont work, like "BIOME". A list of all the settings and their descriptions are listed below.
 
-# config.yml:
+## config.yml
 ```
 # Welcome to the configuration of SimpleSkyblock!
 # Below are some of the customizable parts of
@@ -248,6 +249,6 @@ COBBLE_HEATING: true
 config-version: 1.2.1
   ```
 
-# Special thanks to:
+## Special thanks to
 - robertlit: helped with programming.
 - Rethink: helped translate the plugin into Chinese.

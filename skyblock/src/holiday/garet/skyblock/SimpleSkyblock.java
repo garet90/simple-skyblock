@@ -24,14 +24,21 @@
 
 package holiday.garet.skyblock;
 
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.projectiles.ProjectileSource;
-import org.bukkit.scheduler.BukkitScheduler;
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.ScoreboardManager;
-import org.bukkit.scoreboard.Team;
-import org.bukkit.util.Vector;
-import org.spigotmc.event.entity.EntityMountEvent;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Effect;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.TreeType;
 import org.bukkit.World;
@@ -39,12 +46,6 @@ import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Effect;
-import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -83,25 +84,29 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import java.io.File;
-import java.io.IOException;
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import org.bukkit.plugin.RegisteredServiceProvider;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.projectiles.ProjectileSource;
+import org.bukkit.scheduler.BukkitScheduler;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.ScoreboardManager;
+import org.bukkit.scoreboard.Team;
+import org.bukkit.util.Vector;
+import org.spigotmc.event.entity.EntityMountEvent;
 
 import holiday.garet.skyblock.economy.Economy;
 import holiday.garet.skyblock.economy.Trade;
 import holiday.garet.skyblock.economy.TradeRequest;
-import holiday.garet.skyblock.island.SkyblockPlayer;
 import holiday.garet.skyblock.island.Island;
 import holiday.garet.skyblock.island.IslandInvite;
+import holiday.garet.skyblock.island.SkyblockPlayer;
 
 @SuppressWarnings("deprecation")
 public class SimpleSkyblock extends JavaPlugin implements Listener {
 	FileConfiguration config = this.getConfig();
 	FileConfiguration data = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "data.yml"));
+	FileConfiguration defaultStructure = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "structures" + File.separator + "default.yml"));
+	FileConfiguration netherStructure = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml"));
 
 	List<SkyblockPlayer> players = new ArrayList<SkyblockPlayer>();
 	List<Island> islands = new ArrayList<Island>();
@@ -117,6 +122,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	World skyWorld;
 	World skyNether;
 	
+	Boolean usingVault = false;
+	net.milkbowl.vault.economy.Economy vaultEconomy = null;
+	
     @Override
     public void onEnable() {
     	Bukkit.getPluginManager().registerEvents(this, this);
@@ -130,7 +138,23 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         this.getConfig().options().copyDefaults(true);
         config = this.getConfig();
     	reloadConfig();
-		final String worldName;
+    	if (!defaultStructure.isSet("map")) {
+    		try {
+				defaultStructure = YamlConfiguration.loadConfiguration(new InputStreamReader(this.getResource("default.structure.yml"), "UTF8"));
+				defaultStructure.save(getDataFolder() + File.separator + "structures" + File.separator + "default.yml");
+			} catch (Exception e) {
+				getLogger().warning("Unable to save default island structure!");
+			}
+    	}
+    	if (!netherStructure.isSet("map")) {
+    		try {
+				netherStructure = YamlConfiguration.loadConfiguration(new InputStreamReader(this.getResource("nether.structure.yml"), "UTF8"));
+				netherStructure.save(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml");
+			} catch (Exception e) {
+				getLogger().warning("Unable to save nether island structure!");
+			}
+    	}
+    	final String worldName;
     	if (config.isSet("WORLD")) {
     		worldName = config.getString("WORLD");
     	} else {
@@ -174,6 +198,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	if (data.isSet("data.nextIsland.key")) {
     		nextIslandKey = data.getInt("data.nextIsland.key");
     	}
+    	if (getServer().getPluginManager().getPlugin("Vault")!=null) {
+    		RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> rsp = getServer().getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
+    		if (rsp != null) {
+            	vaultEconomy = rsp.getProvider();
+            	usingVault = true;
+    		}
+    	}
     	getLogger().info("SimpleSkyblock has been enabled!");
     	try {
 	        getLogger().info("Checking for updates...");
@@ -211,6 +242,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		}
         	}
     	}
+    }
+    
+    public boolean activateVault() {
+    	return true;
     }
     
     public ChunkGenerator getDefaultWorldGenerator(String worldName, String id) {
@@ -313,8 +348,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 						            		Player tempP = getServer().getPlayer(islandMembers.get(i));
 						            		SkyblockPlayer tempSP = getSkyblockPlayer(tempP);
 						            		tempSP.setHome(sp.getHome());
-						            		Economy tempEcon = new Economy(islandMembers.get(i), data);
-						            		tempEcon.set(0);
+						            		if (!usingVault) {
+							            		Economy tempEcon = new Economy(islandMembers.get(i), data);
+							            		tempEcon.set(0);
+						            		} else {
+						            			OfflinePlayer op = getServer().getOfflinePlayer(islandMembers.get(i));
+						            			vaultEconomy.withdrawPlayer(op, vaultEconomy.getBalance(op));
+						            		}
 						            		if (tempP == null) {
 						            			toClear.add(islandMembers.get(i).toString());
 						            		} else {
@@ -509,9 +549,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            					}
 	            					ii.setActive(false);
 	            					sp.setHome(sj.getHome());
-	            					
-	            					Economy econ = new Economy(p.getUniqueId(), data);
-	            					econ.set(0); // set to 0 to prevent abuse.
+	            					if (usingVault) {
+	            						vaultEconomy.withdrawPlayer(p,vaultEconomy.getBalance(p));
+	            					} else {
+	            						Economy econ = new Economy(p.getUniqueId(), data);
+		            					econ.set(0); // set to 0 to prevent abuse.
+	            					}
 	    				            PlayerInventory inv = p.getInventory();
 	    				            inv.clear();
 	    				            inv.setArmorContents(new ItemStack[4]);
@@ -735,7 +778,24 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            return true;
         	}
         } else if (command.getName().equalsIgnoreCase("bal") || command.getName().equalsIgnoreCase("balance")) {
-        	if (config.getBoolean("USE_ECONOMY")) {
+        	if (usingVault) {
+        		if (sender instanceof Player) {
+        			if (args.length == 0) {
+        				Player p = (Player) sender;
+		        		DecimalFormat dec = new DecimalFormat("#0.00");
+						sender.sendMessage("Balance: " + ChatColor.GREEN + "$" + dec.format(vaultEconomy.getBalance(p)));
+		        		return true;
+        			} else {
+        				OfflinePlayer op = getServer().getOfflinePlayer(args[0]);
+		        		DecimalFormat dec = new DecimalFormat("#0.00");
+						sender.sendMessage("Balance of " + op.getName() + ": " + ChatColor.GREEN + "$" + dec.format(vaultEconomy.getBalance(op)));
+		        		return true;
+        			}
+        		} else {
+	        		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
+	        		return true;
+	        	}
+        	} else if (config.getBoolean("USE_ECONOMY")) {
 	        	if (sender instanceof Player) {
 	        		if (args.length == 0) {
 		        		Player p = (Player) sender;
@@ -768,7 +828,43 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		return true;
         	}
         } else if (command.getName().equalsIgnoreCase("pay")) {
-        	if (config.getBoolean("USE_ECONOMY")) {
+        	if (usingVault) {
+        		if (sender instanceof Player) {
+        			Player p = (Player) sender;
+        			if (args.length > 1) {
+        				Player r = getServer().getPlayer(args[0]);
+        				if (r != null) {
+        					double payAmount;
+	        			    try {
+	            				payAmount = Double.valueOf(args[1]);
+	        			    } catch (NumberFormatException | NullPointerException nfe) {
+	        					sender.sendMessage(ChatColor.RED + "That\'s not a valid amount of money!");
+	        			        return true;
+	        			    }
+	        			    if (vaultEconomy.getBalance(p) >= payAmount && payAmount > 0) {
+	        			    	vaultEconomy.withdrawPlayer(p, payAmount);
+	        			    	vaultEconomy.depositPlayer(r, payAmount);
+	        	        		DecimalFormat dec = new DecimalFormat("#0.00");
+	        					sender.sendMessage(ChatColor.GREEN + "Sent $" + dec.format(payAmount) + " to " + r.getName() + " successfully.");
+	        					r.sendMessage(ChatColor.GREEN + "Received $" + dec.format(payAmount) + " from " + p.getName() + ".");
+	        					return true;
+	        			    } else {
+	        					sender.sendMessage(ChatColor.RED + "You don\'t have enough money!");
+	        					return true;
+	        			    }
+        				} else {
+	        				sender.sendMessage(ChatColor.RED + "The receiver must be online to receive money!");
+	        				return true;
+	        			}
+        			} else {
+            			sender.sendMessage(ChatColor.RED + "Usage: /pay <player> <amount>");
+            			return true;
+            		}
+	        	} else {
+	        		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
+	        		return true;
+	        	}
+        	} else if (config.getBoolean("USE_ECONOMY")) {
 	        	if (sender instanceof Player) {
 	        		Player p = (Player) sender;
 	        		if (args.length > 1) {
@@ -865,7 +961,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		        				t = trec.from();
 		        				if (t != null && t != p) {
 		        					if (p.getLocation().distance(t.getLocation()) < 10) {
-			        					Trade trade = new Trade(t, p, this, new Economy(t.getUniqueId(), data), new Economy(p.getUniqueId(), data));
+		        						Trade trade = null;
+		        						if (usingVault) {
+		        							trade = new Trade(t, p, this, vaultEconomy);
+		        						} else {
+		        							trade = new Trade(t, p, this, new Economy(t.getUniqueId(), data), new Economy(p.getUniqueId(), data));
+		        						}
 			        					this.getServer().getPluginManager().registerEvents(trade, this);
 			        					trade.open();
 			        					trec.close();
@@ -950,7 +1051,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    				if (btype.equalsIgnoreCase("Default")) {
 	    					addPts = bpts;
 	    				} else {
-	    					Material bmat = XMaterial.matchXMaterial(btype).parseMaterial();
+	    					Material bmat = XMaterial.matchXMaterial(btype).get().parseMaterial();
 	    					if (bmat != null && e.getBlock().getType() == bmat) {
 	    						addPts = bpts;
 	    					} else if (bmat == null) {
@@ -989,7 +1090,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    				if (btype.equalsIgnoreCase("Default")) {
 	    					addPts = bpts;
 	    				} else {
-	    					Material bmat = XMaterial.matchXMaterial(btype).parseMaterial();
+	    					Material bmat = XMaterial.matchXMaterial(btype).get().parseMaterial();
 	    					if (bmat != null && e.getBlock().getType() == bmat) {
 	    						addPts = bpts;
 	    					} else if (bmat == null) {
@@ -1143,14 +1244,24 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            				}
 			            			}
 			            			if (getMoney != 0) {
-			            				Economy econ = new Economy(p.getUniqueId(), data);
-			            				econ.deposit(getMoney);
+			            				if (usingVault) {
+			            					vaultEconomy.depositPlayer(p, getMoney);
+			            				} else {
+				            				Economy econ = new Economy(p.getUniqueId(), data);
+				            				econ.deposit(getMoney);
+			            				}
 				            			DecimalFormat dec = new DecimalFormat("#0.00");
 				            			if (getMoney > 0) {
 				            				p.sendMessage(ChatColor.GREEN + "You earned $" + dec.format(getMoney) + " for killing a " + e.getEntity().getType().getName().replace("_", " ") + ".");
 				            			} else {
 				            				p.sendMessage(ChatColor.RED + "You lost $" + dec.format(getMoney) + " for killing a " + e.getEntity().getType().getName().replace("_", " ") + ".");
 				            			}
+			            			}
+			            			Entity ent = e.getEntity();
+			            			Location entloc = ent.getLocation();
+			            			entloc.add(0,-1,0);
+			            			if (config.getBoolean("SOUL_SAND") && entloc.getWorld() == skyNether && entloc.getBlock().getType() == Material.SAND) {
+			            				entloc.getBlock().setType(XMaterial.SOUL_SAND.parseMaterial());
 			            			}
 			            		}
 			            	}
@@ -1232,7 +1343,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 								double oreType = Math.random() * 100.0;
 								List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
 							    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
-							    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).parseMaterial();
+							    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
 							    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
 							    	if (itemMat != null) {
 							    		oreType -= itemChance;
@@ -1263,7 +1374,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            				if (btype.equalsIgnoreCase("Default")) {
 			            					addPts = bpts;
 			            				} else {
-			            					Material bmat = XMaterial.matchXMaterial(btype).parseMaterial();
+			            					Material bmat = XMaterial.matchXMaterial(btype).get().parseMaterial();
 			            					if (bmat != null && b.getType() == bmat) {
 			            						addPts = bpts;
 			            					} else if (bmat == null) {
@@ -1321,11 +1432,18 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			p.setFallDistance(0);
 			if (config.getBoolean("USE_ECONOMY")) {
 				if (sp.getIsland() != null && sp.getIsland().inBounds(p.getLocation())) {
-					Economy econ = new Economy(p.getUniqueId(), data);
-					Double loss = econ.get() / 2;
-		    		DecimalFormat dec = new DecimalFormat("#0.00");
-					p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
-					econ.set(loss);
+					if (usingVault) {
+						Double loss = vaultEconomy.getBalance(p) / 2;
+			    		DecimalFormat dec = new DecimalFormat("#0.00");
+						p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+						vaultEconomy.withdrawPlayer(p, loss);
+					} else {
+						Economy econ = new Economy(p.getUniqueId(), data);
+						Double loss = econ.get() / 2;
+			    		DecimalFormat dec = new DecimalFormat("#0.00");
+						p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+						econ.set(loss);
+					}
 				}
 			}
 			if (skyWorld.getGameRuleValue("keepInventory") != "true") {
@@ -1341,11 +1459,18 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
 			if (config.getBoolean("USE_ECONOMY")) {
-				Economy econ = new Economy(p.getUniqueId(), data);
-				Double loss = econ.get() / 2;
-	    		DecimalFormat dec = new DecimalFormat("#0.00");
-				p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
-				econ.set(loss);
+				if (usingVault) {
+					Double loss = vaultEconomy.getBalance(p) / 2;
+		    		DecimalFormat dec = new DecimalFormat("#0.00");
+					p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+					vaultEconomy.withdrawPlayer(p, loss);
+				} else {
+					Economy econ = new Economy(p.getUniqueId(), data);
+					Double loss = econ.get() / 2;
+		    		DecimalFormat dec = new DecimalFormat("#0.00");
+					p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+					econ.set(loss);
+				}
 			}
 		}
 	}
@@ -1445,10 +1570,18 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
 		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
-			Location newTo = e.getFrom();
+			Location newTo = e.getPlayer().getLocation();
 			if (newTo.getWorld() == skyWorld) {
 				newTo.setWorld(skyNether);
 				e.setTo(newTo);
+				Player p = e.getPlayer();
+				SkyblockPlayer sp = getSkyblockPlayer(p);
+				if (!sp.getIsland().getNether()) {
+					Location p1 = sp.getIsland().getP1();
+					p1.setWorld(skyNether);
+					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
+					sp.getIsland().setNether(true);
+				}
 			} else if (newTo.getWorld() == skyNether) {
 				newTo.setWorld(skyWorld);
 				e.setTo(newTo);
@@ -1472,13 +1605,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 
 	public void generateIsland(Location loc, Player p, Island playerIsland) {
 		
+		getLogger().info("Generating Default Island at " + loc);
+		
 		int x1 = loc.getBlockX();
 		int y1 = loc.getBlockY();
 		int z1 = loc.getBlockZ();
 		
-		int length = 5;
-		int width = 5;
-		int height = 4;
+		int length = defaultStructure.getInt("depth");
+		int width = defaultStructure.getInt("width");
+		int height = defaultStructure.getInt("height");
 		
 		int x2 = x1 + length;
 		int y2 = y1 + height;
@@ -1489,106 +1624,63 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		for (int x = x1; x < x2; x++) {
 			for (int y = y1; y < y2; y++) {
 				for (int z = z1; z < z2; z++) {
-					if (
-							!(x == x1 && z == z1)
-							&& !(x == x2 - 1 && z == z1)
-							&& !(x == x1 && z == z2 - 1)
-							&& !(x == x2 - 1 && z == z2 - 1)
-							&& !(y < y2 - 1 && 
-									(
-											(z == z1+1 && x == x1)
-											|| (z == z1 && x == x1+1)
-											|| (z == z2-2 && x == x1)
-											|| (z == z2-1 && x == x1+1)
-											|| (z == z2-2 && x == x2-1)
-											|| (z == z2-1 && x == x2-2)
-											|| (z == z1 && x == x2-2)
-											|| (z == z1+1 && x == x2-1)
-											)
-									)
-							&& !(y < y2 - 2 &&
-									(
-										(z == z1 && x == x1+2)
-										|| (z == z2 - 1 && x == x1+2)
-										|| (z == z1+2 && x == x1)
-										|| (z == z1+2 && x == x2 - 1)
-										|| (z == z1+1 && x == x1+1)
-										|| (z == z2-2 && x == x1+1)
-										|| (z == z1+1 && x == x2-2)
-										|| (z == z2-2 && x == x2-2)
-										)
-									)
-							&& !(y < y2 - 3 &&
-									(
-										(z == z1+1 && x == x1+2) // (2,3)
-										|| (z == z1+3 && x == x1+2) // (4,3)
-										|| (z == z1+2 && x == x1+1) // (3,2)
-										|| (z == z1+2 && x == x1+3) // (3,4)
-										)
-									)
-							) {
-						Block currentBlock = skyWorld.getBlockAt(x, y, z);
-	    				if (y == y2 - 1) {
-	    					currentBlock.setType(XMaterial.GRASS_BLOCK.parseMaterial());
-	    				} else if (x == x1 + 2 && z == z1 + 2 && y > y1) {
-	    					currentBlock.setType(XMaterial.SAND.parseMaterial());
-	    				} else if (y == y1) {
-	    					currentBlock.setType(XMaterial.BEDROCK.parseMaterial());
-	    				} else if (y < y1 + 3) {
-	    					if (config.getBoolean("GENERATE_ORES")) { // spice things up
-	    						double oreType = Math.random() * 100.0;
-	    						List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
-	    					    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
-	    					    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).parseMaterial();
-	    					    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
-	    					    	if (itemMat != null) {
-	    					    		oreType -= itemChance;
-	    					    		if (oreType < 0) {
-	    					    			currentBlock.setType(itemMat);
-	    					    			break;
-	    					    		}
-	    					    	} else {
-	    					    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
-	    					    	}
-	    					    }
-	    					    if (currentBlock.getType() == XMaterial.AIR.parseMaterial()) {
-	    					    	currentBlock.setType(XMaterial.COBBLESTONE.parseMaterial());
-	    					    }
-	    					} else {
-	    						currentBlock.setType(XMaterial.DIRT.parseMaterial());
-	    					}
-	    				} else {
-	    					currentBlock.setType(XMaterial.DIRT.parseMaterial());
-	    				}
+					Block currentBlock = skyWorld.getBlockAt(x, y, z);
+					String currentType = defaultStructure.getString("map." + String.valueOf(y-y1) + "." + String.valueOf(z-z1) + "." + String.valueOf(x-x1));
+					if (currentType.equalsIgnoreCase("ore")) {
+    					if (config.getBoolean("GENERATE_ORES")) { // spice things up
+    						double oreType = Math.random() * 100.0;
+    						List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
+    					    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
+    					    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
+    					    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
+    					    	if (itemMat != null) {
+    					    		oreType -= itemChance;
+    					    		if (oreType < 0) {
+    					    			currentBlock.setType(itemMat);
+    					    			break;
+    					    		}
+    					    	} else {
+    					    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
+    					    	}
+    					    }
+    					    if (currentBlock.getType() == XMaterial.AIR.parseMaterial()) {
+    					    	currentBlock.setType(XMaterial.COBBLESTONE.parseMaterial());
+    					    }
+    					} else {
+    						currentBlock.setType(XMaterial.DIRT.parseMaterial());
+    					}
+					} else if (currentType.equalsIgnoreCase("tree")) {
+						skyWorld.generateTree(new Location(skyWorld,x,y,z), TreeType.TREE);
+					} else if (currentType.equalsIgnoreCase("item_chest")) {
+						skyWorld.getBlockAt(new Location(skyWorld,x,y,z)).setType(XMaterial.CHEST.parseMaterial());
+						Chest chest = (Chest) skyWorld.getBlockAt(new Location(skyWorld,x,y,z)).getState();
+					    Inventory chestinv = chest.getBlockInventory();
+					    List<String> CHEST_ITEMS = config.getStringList("CHEST_ITEMS");
+					    for(int i = 0; i < CHEST_ITEMS.size(); i++) {
+					    	Material itemMat = XMaterial.matchXMaterial(CHEST_ITEMS.get(i).split(":")[0]).get().parseMaterial();
+					    	int itemCnt = Integer.parseInt(CHEST_ITEMS.get(i).split(":")[1]);
+					    	if (itemMat != null) {
+					    		chestinv.addItem(new ItemStack(itemMat,itemCnt));
+					    	} else {
+					    		getLogger().severe("Unknown material \'" + CHEST_ITEMS.get(i).split(":")[0] + "\' at CHEST_ITEMS item " + (i + 1) + "!");
+					    	}
+					    }
+					} else if (currentType.equalsIgnoreCase("player_spawn")) {
+					    p.setFallDistance(0);
+					    p.teleport(new Location(skyWorld,x+.5,y,z+.5), TeleportCause.PLUGIN);
+					    p.setBedSpawnLocation(new Location(skyWorld,x+.5,y,z+.5), true);
+						skyWorld.getBlockAt(new Location(skyWorld,x,y+1,z)).setType(XMaterial.AIR.parseMaterial());
+					} else {
+						Material mat = XMaterial.matchXMaterial(currentType).get().parseMaterial();
+						if (mat != null) {
+							currentBlock.setType(mat);
+						} else {
+							getLogger().severe("UNKNOWN MATERIAL '" + currentType + "' AT 'structures/default.yml'!");
+						}
 					}
 				}
 			}
 		}
-		// spawn tree and chest
-		Location treeLoc = new Location(skyWorld,x1+2,y2,z1+2);
-		Location chestLoc = new Location(skyWorld,x1+2,y2,z1+1);
-		Location spawnLoc = new Location(skyWorld,x1+2,y2+1,z1);
-		Location homeLoc = new Location(skyWorld,x1+2.5,y2,z1+.5);
-		skyWorld.generateTree(treeLoc, TreeType.TREE);
-		skyWorld.getBlockAt(spawnLoc).setType(XMaterial.AIR.parseMaterial());
-		skyWorld.getBlockAt(chestLoc).setType(XMaterial.CHEST.parseMaterial());
-		Chest chest = (Chest) skyWorld.getBlockAt(chestLoc).getState();
-	    Inventory chestinv = chest.getBlockInventory();
-	    List<String> CHEST_ITEMS = config.getStringList("CHEST_ITEMS");
-	    for(int i = 0; i < CHEST_ITEMS.size(); i++) {
-	    	Material itemMat = XMaterial.matchXMaterial(CHEST_ITEMS.get(i).split(":")[0]).parseMaterial();
-	    	int itemCnt = Integer.parseInt(CHEST_ITEMS.get(i).split(":")[1]);
-	    	if (itemMat != null) {
-	    		chestinv.addItem(new ItemStack(itemMat,itemCnt));
-	    	} else {
-	    		getLogger().severe("Unknown material \'" + CHEST_ITEMS.get(i).split(":")[0] + "\' at CHEST_ITEMS item " + (i + 1) + "!");
-	    	}
-	    }
-	    
-	    // teleport player
-	    p.setFallDistance(0);
-	    p.teleport(homeLoc, TeleportCause.PLUGIN);
-	    p.setBedSpawnLocation(homeLoc, true);
 	    
 	    // set values
 	    Location np1 = new Location(skyWorld,x1-(config.getInt("ISLAND_WIDTH")/2),0,z1-(config.getInt("ISLAND_DEPTH")/2));
@@ -1597,17 +1689,24 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    if (playerIsland == null) {
 		    Island newIs = new Island(np1, np2, 100, nextIslandKey, p, skyWorld, data, this);
 		    nextIslandKey++;
+		    newIs.setNether(false);
 		    islands.add(newIs);
 		    sp.setIsland(newIs);
 	    } else {
 	    	playerIsland.setP1(np1);
 	    	playerIsland.setP2(np2);
 	    	playerIsland.setPoints(100);
+	    	playerIsland.setNether(false);
 	    }
 		sp.setVisiting(null);
-	    sp.setHome(homeLoc);
-	    Economy econ = new Economy(p.getUniqueId(), data);
-	    econ.set(config.getDouble("STARTING_MONEY"));
+	    sp.setHome(p.getLocation());
+	    if (usingVault) {
+	    	vaultEconomy.withdrawPlayer(p, vaultEconomy.getBalance(p));
+	    	vaultEconomy.depositPlayer(p, config.getDouble("STARTING_MONEY"));
+	    } else {
+		    Economy econ = new Economy(p.getUniqueId(), data);
+		    econ.set(config.getDouble("STARTING_MONEY"));
+	    }
 	    
 	    // set next island location
 	    if (x1 < config.getInt("LIMIT_X")) {
@@ -1615,6 +1714,65 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    } else {
 	    	nextIsland = new Location(skyWorld, -config.getInt("LIMIT_X"), config.getInt("ISLAND_HEIGHT"), z1+config.getInt("ISLAND_DEPTH"));
 	    }
+	}
+	
+	public void generateNetherIsland(Location loc) {
+		
+		getLogger().info("Generating Nether Island at " + loc);
+		
+		int x1 = loc.getBlockX();
+		int y1 = loc.getBlockY();
+		int z1 = loc.getBlockZ();
+		
+		int length = netherStructure.getInt("depth");
+		int width = netherStructure.getInt("width");
+		int height = netherStructure.getInt("height");
+		
+		int x2 = x1 + length;
+		int y2 = y1 + height;
+		int z2 = z1 + width;
+		
+		// spawn blocks
+		
+		for (int x = x1; x < x2; x++) {
+			for (int y = y1; y < y2; y++) {
+				for (int z = z1; z < z2; z++) {
+					Block currentBlock = skyNether.getBlockAt(x, y, z);
+					String currentType = netherStructure.getString("map." + String.valueOf(y-y1) + "." + String.valueOf(z-z1) + "." + String.valueOf(x-x1));
+					if (currentType.equalsIgnoreCase("ore")) {
+    					if (config.getBoolean("GENERATE_ORES")) { // spice things up
+    						double oreType = Math.random() * 100.0;
+    						List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
+    					    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
+    					    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
+    					    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
+    					    	if (itemMat != null) {
+    					    		oreType -= itemChance;
+    					    		if (oreType < 0) {
+    					    			currentBlock.setType(itemMat);
+    					    			break;
+    					    		}
+    					    	} else {
+    					    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
+    					    	}
+    					    }
+    					    if (currentBlock.getType() == XMaterial.AIR.parseMaterial()) {
+    					    	currentBlock.setType(XMaterial.COBBLESTONE.parseMaterial());
+    					    }
+    					} else {
+    						currentBlock.setType(XMaterial.DIRT.parseMaterial());
+    					}
+					} else {
+						Material mat = XMaterial.matchXMaterial(currentType).get().parseMaterial();
+						if (mat != null) {
+							currentBlock.setType(mat);
+						} else {
+							getLogger().severe("UNKNOWN MATERIAL '" + currentType + "' AT 'structures/nether.yml'!");
+						}
+					}
+				}
+			}
+		}
 	}
 
 	public static void noCollideAddPlayer(Player p) {

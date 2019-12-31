@@ -233,6 +233,11 @@ BONEMEAL_DOES_MORE: true
 # by setting this to false.
 COBBLE_HEATING: true
 
+# SOUL_SAND determines whether enemies killed on
+# sand in the skyblock nether will turn the sand
+# into soul sand.
+SOUL_SAND: true
+
 
 
 # You survived! You made it through the entire

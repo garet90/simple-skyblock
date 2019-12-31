@@ -1,0 +1,159 @@
+width: 5 # X
+height: 5 # Y
+depth: 5 # Z
+map:
+  0: # y1
+    0:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'AIR'
+      3: 'AIR'
+      4: 'AIR'
+    1:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'AIR'
+      3: 'AIR'
+      4: 'AIR'
+    2:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'BEDROCK'
+      3: 'AIR'
+      4: 'AIR'
+    3:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'AIR'
+      3: 'AIR'
+      4: 'AIR'
+    4:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'AIR'
+      3: 'AIR'
+      4: 'AIR'
+  1: # y2
+    0:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'AIR'
+      3: 'AIR'
+      4: 'AIR'
+    1:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'ore'
+      3: 'AIR'
+      4: 'AIR'
+    2:
+      0: 'AIR'
+      1: 'ore'
+      2: 'SAND'
+      3: 'ore'
+      4: 'AIR'
+    3:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'ore'
+      3: 'AIR'
+      4: 'AIR'
+    4:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'AIR'
+      3: 'AIR'
+      4: 'AIR'
+  2: # y3
+    0:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'ore'
+      3: 'AIR'
+      4: 'AIR'
+    1:
+      0: 'AIR'
+      1: 'ore'
+      2: 'ore'
+      3: 'ore'
+      4: 'AIR'
+    2:
+      0: 'ore'
+      1: 'ore'
+      2: 'sand'
+      3: 'ore'
+      4: 'ore'
+    3:
+      0: 'AIR'
+      1: 'ore'
+      2: 'ore'
+      3: 'ore'
+      4: 'AIR'
+    4:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'ore'
+      3: 'AIR'
+      4: 'AIR'
+  3: # y4
+    0:
+      0: 'AIR'
+      1: 'GRASS_BLOCK'
+      2: 'GRASS_BLOCK'
+      3: 'GRASS_BLOCK'
+      4: 'AIR'
+    1:
+      0: 'GRASS_BLOCK'
+      1: 'GRASS_BLOCK'
+      2: 'GRASS_BLOCK'
+      3: 'GRASS_BLOCK'
+      4: 'GRASS_BLOCK'
+    2:
+      0: 'GRASS_BLOCK'
+      1: 'GRASS_BLOCK'
+      2: 'GRASS_BLOCK'
+      3: 'GRASS_BLOCK'
+      4: 'GRASS_BLOCK'
+    3:
+      0: 'GRASS_BLOCK'
+      1: 'GRASS_BLOCK'
+      2: 'GRASS_BLOCK'
+      3: 'GRASS_BLOCK'
+      4: 'GRASS_BLOCK'
+    4:
+      0: 'AIR'
+      1: 'GRASS_BLOCK'
+      2: 'GRASS_BLOCK'
+      3: 'GRASS_BLOCK'
+      4: 'AIR'
+  4: # y5
+    0:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'player_spawn'
+      3: 'AIR'
+      4: 'AIR'
+    1:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'item_chest'
+      3: 'AIR'
+      4: 'AIR'
+    2:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'tree'
+      3: 'AIR'
+      4: 'AIR'
+    3:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'AIR'
+      3: 'AIR'
+      4: 'AIR'
+    4:
+      0: 'AIR'
+      1: 'AIR'
+      2: 'AIR'
+      3: 'AIR'
+      4: 'AIR'

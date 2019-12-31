@@ -1,0 +1,6 @@
+/skyblock/libraries/*
+/skyblock/target/*
+/skyblock/.externalToolBuilders/*
+/skyblock/.settings/*
+/skyblock/.classpath
+/skyblock/.project

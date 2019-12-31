@@ -1,0 +1,4 @@
+language: java
+before_script: cd skyblock
+script: ant makejar
+os: linux

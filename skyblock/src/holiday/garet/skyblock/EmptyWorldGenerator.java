@@ -38,7 +38,8 @@ import org.bukkit.generator.ChunkGenerator;
 public class EmptyWorldGenerator extends ChunkGenerator {
 	FileConfiguration config = Bukkit.getServer().getPluginManager().getPlugin("SimpleSkyblock").getConfig();
 
-    @Override
+    @SuppressWarnings("deprecation")
+	@Override
     @Nonnull
     public ChunkData generateChunkData(@Nonnull World world, @Nonnull Random random, int chunkX, int chunkZ, @Nonnull BiomeGrid biome) {
     	Biome b;

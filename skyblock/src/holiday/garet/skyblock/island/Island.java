@@ -46,6 +46,7 @@ public class Island {
 	Boolean allowVisitors = true;
 	Boolean canReset = true;
 	Boolean visitorsCanRideMobs = false;
+	Boolean nether;
 	double points;
 	Plugin plugin;
 
@@ -69,6 +70,11 @@ public class Island {
 			visitorsCanRideMobs = data.getBoolean("data.islands." + islandKey + ".visitorsCanRideMobs");
 			points = data.getDouble("data.islands." + islandKey + ".points");
 			canReset = data.getBoolean("data.islands." + islandKey + ".canReset");
+			if (data.isSet("data.islands." + String.valueOf(islandKey) + ".nether")) {
+				nether = data.getBoolean("data.islands." + String.valueOf(islandKey) + ".nether");
+			} else {
+				nether = false;
+			}
 		}
 	}
 	
@@ -81,6 +87,11 @@ public class Island {
 		plugin = _plugin;
 		data = _data;
 		members = new ArrayList<String>();
+		if (data.isSet("data.islands." + String.valueOf(islandKey) + ".nether")) {
+			nether = data.getBoolean("data.islands." + String.valueOf(islandKey) + ".nether");
+		} else {
+			nether = false;
+		}
 	}
 	
 	public Island(World _world, Location _p1, Location _p2, Player _leader, FileConfiguration _data) {
@@ -122,6 +133,7 @@ public class Island {
 		data.set("data.islands." + String.valueOf(islandKey) + ".visitorsCanRideMobs", visitorsCanRideMobs);
 		data.set("data.islands." + String.valueOf(islandKey) + ".canReset", canReset);
 		data.set("data.islands." + String.valueOf(islandKey) + ".points", points);
+		data.set("data.islands." + String.valueOf(islandKey) + ".nether", nether);
 	}
 	
 	public boolean hasPlayer(Player p) {
@@ -259,6 +271,14 @@ public class Island {
 	
 	public void setVisitorsCanRideMobs(Boolean _value) {
 		visitorsCanRideMobs = _value;
+	}
+	
+	public Boolean getNether() {
+		return nether;
+	}
+	
+	public void setNether(Boolean _nether) {
+		nether = _nether;
 	}
 	
 }
