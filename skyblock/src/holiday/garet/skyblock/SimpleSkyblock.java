@@ -74,11 +74,11 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
+import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.generator.ChunkGenerator;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -270,7 +270,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                              Command command,
                              String label,
                              String[] args) {
-		getLogger().info("" + nextIsland);
         if (command.getName().equalsIgnoreCase("island") || command.getName().equalsIgnoreCase("is")) {
         	if (sender instanceof Player) {
     			Player p = (Player) sender;
@@ -1123,7 +1122,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		}
     	}
     	if (!e.isCancelled() && config.getBoolean("BONEMEAL_DOES_MORE") && config.getBoolean("USE_CUSTOM_MECHANICS") && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
-			if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK) && e.getHand().equals(EquipmentSlot.HAND)) {
+			if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
 				if (b.getType() == XMaterial.DIRT.parseMaterial() && b.getRelative(BlockFace.UP).getType() != XMaterial.WATER.parseMaterial()) {
 					if (p.getItemInHand().getType() == XMaterial.BONE_MEAL.parseMaterial()) {
 						e.setCancelled(true);
@@ -1134,7 +1133,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 						if (rand == 0) {
 							b.setType(XMaterial.GRASS_BLOCK.parseMaterial());
 						}
-						skyWorld.playEffect(b.getLocation(), Effect.VILLAGER_PLANT_GROW, 0);
+						Effect happyVillager = Effect.valueOf("HAPPY_VILLAGER");
+						if (happyVillager != null) {
+							skyWorld.playEffect(b.getLocation(), happyVillager, 0);
+						} else {
+							skyWorld.playEffect(b.getLocation(), Effect.valueOf("VILLAGER_PLANT_GROW"), 0);
+						}
 					}
 				} else if ((b.getType() == XMaterial.DIRT.parseMaterial() || b.getType() == XMaterial.GRASS_BLOCK.parseMaterial()) && b.getRelative(BlockFace.UP).getType() == XMaterial.WATER.parseMaterial()) {
 					if (p.getItemInHand().getType() == XMaterial.BONE_MEAL.parseMaterial()) {
@@ -1155,7 +1159,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 							if (toDrop != null) {
 								e.setCancelled(true);
 								skyWorld.dropItem(r.getLocation(), toDrop);
-								skyWorld.playEffect(b.getLocation(), Effect.VILLAGER_PLANT_GROW, 0);
+								Effect happyVillager = Effect.valueOf("HAPPY_VILLAGER");
+								if (happyVillager != null) {
+									skyWorld.playEffect(b.getLocation(), happyVillager, 0);
+								} else {
+									skyWorld.playEffect(b.getLocation(), Effect.valueOf("VILLAGER_PLANT_GROW"), 0);
+								}
 							}
 						}
 					}
@@ -1191,7 +1200,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 								}
 								if (toDrop != null) {
 									skyWorld.dropItem(r.getLocation(), toDrop);
-									skyWorld.playEffect(b.getLocation(), Effect.VILLAGER_PLANT_GROW, 0);
+									Effect happyVillager = Effect.valueOf("HAPPY_VILLAGER");
+									if (happyVillager != null) {
+										skyWorld.playEffect(b.getLocation(), happyVillager, 0);
+									} else {
+										skyWorld.playEffect(b.getLocation(), Effect.valueOf("VILLAGER_PLANT_GROW"), 0);
+									}
 								}
 							}
 						}
@@ -1299,7 +1313,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     			players.add(new SkyblockPlayer(p, playerIsland, skyWorld, data, this));
     		}
     		sp = getSkyblockPlayer(p);
-    		if (config.getBoolean("DISABLE_PLAYER_COLLISIONS")) {
+    		if (config.getBoolean("DISABLE_PLAYER_COLLISIONS") && (getServer().getVersion().contains("1.12") || getServer().getVersion().contains("1.13") || getServer().getVersion().contains("1.14") || getServer().getVersion().contains("1.15"))) {
     			noCollideAddPlayer(p);
     		}
     		if (toClear.contains(p.getUniqueId().toString())) {
@@ -1589,6 +1603,28 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
+		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
+			Location newTo = e.getPlayer().getLocation();
+			if (newTo.getWorld() == skyWorld) {
+				newTo.setWorld(skyNether);
+				e.setTo(newTo);
+				Player p = e.getPlayer();
+				SkyblockPlayer sp = getSkyblockPlayer(p);
+				if (!sp.getIsland().getNether()) {
+					Location p1 = sp.getIsland().getP1();
+					p1.setWorld(skyNether);
+					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
+					sp.getIsland().setNether(true);
+				}
+			} else if (newTo.getWorld() == skyNether) {
+				newTo.setWorld(skyWorld);
+				e.setTo(newTo);
+			}
+		}
+	}
+	
+	@EventHandler
+	public void onPlayerPortal(PlayerPortalEvent e) {
 		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
 			Location newTo = e.getPlayer().getLocation();
 			if (newTo.getWorld() == skyWorld) {

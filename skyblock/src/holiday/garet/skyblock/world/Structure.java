@@ -32,7 +32,8 @@ public class Structure {
 		config = _config;
 		logger = _logger;
 	}
-	
+
+    @SuppressWarnings("deprecation")
 	public void generate() {
 		
 		logger.info("Generating structure at x:" + loc.getX() + ", y:" + loc.getY() + ", z:" + loc.getZ());
@@ -55,10 +56,10 @@ public class Structure {
 		
 		for (int x = x1; x < x2; x++) {
 			for (int z = z1; z < z2; z++) {
+				if (bp.isSet("biome")) {
+					world.setBiome(x, z, Biome.valueOf(bp.getString("biome")));
+				}
 				for (int y = y1; y < y2; y++) {
-					if (bp.isSet("biome")) {
-						world.setBiome(x, y, z, Biome.valueOf(bp.getString("biome")));
-					}
 					Block currentBlock = world.getBlockAt(x, y, z);
 					String currentType = bp.getString("map." + String.valueOf(y-y1) + "." + String.valueOf(z-z1) + "." + String.valueOf(x-x1));
 					if (currentType.equalsIgnoreCase("ore")) {
