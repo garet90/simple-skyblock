@@ -1260,7 +1260,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            			Entity ent = e.getEntity();
 			            			Location entloc = ent.getLocation();
 			            			entloc.add(0,-1,0);
-			            			if (config.getBoolean("SOUL_SAND") && entloc.getWorld() == skyNether && entloc.getBlock().getType() == Material.SAND) {
+			            			if (config.getBoolean("SOUL_SAND") && config.getBoolean("USE_CUSTOM_MECHANICS") && entloc.getWorld() == skyNether && entloc.getBlock().getType() == Material.SAND) {
 			            				entloc.getBlock().setType(XMaterial.SOUL_SAND.parseMaterial());
 			            			}
 			            		}
@@ -1639,6 +1639,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		
 		// spawn blocks
 		
+		Location toSetAir = null;
+		
 		for (int x = x1; x < x2; x++) {
 			for (int y = y1; y < y2; y++) {
 				for (int z = z1; z < z2; z++) {
@@ -1687,7 +1689,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					    p.setFallDistance(0);
 					    p.teleport(new Location(skyWorld,x+.5,y,z+.5), TeleportCause.PLUGIN);
 					    p.setBedSpawnLocation(new Location(skyWorld,x+.5,y,z+.5), true);
-						skyWorld.getBlockAt(new Location(skyWorld,x,y+1,z)).setType(XMaterial.AIR.parseMaterial());
+					    toSetAir = new Location(skyWorld,x,y+1,z);
 					} else {
 						Material mat = XMaterial.matchXMaterial(currentType).get().parseMaterial();
 						if (mat != null) {
@@ -1699,6 +1701,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				}
 			}
 		}
+
+		skyWorld.getBlockAt(toSetAir).setType(XMaterial.AIR.parseMaterial());
 	    
 	    // set values
 	    Location np1 = new Location(skyWorld,x1-(config.getInt("ISLAND_WIDTH")/2),0,z1-(config.getInt("ISLAND_DEPTH")/2));
