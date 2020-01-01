@@ -243,4 +243,4 @@ SOUL_SAND: true
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.3.1
+config-version: 1.3.0
