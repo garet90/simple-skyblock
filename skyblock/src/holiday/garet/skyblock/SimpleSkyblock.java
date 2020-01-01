@@ -40,12 +40,10 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.TreeType;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.Chest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -81,7 +79,6 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -100,6 +97,8 @@ import holiday.garet.skyblock.economy.TradeRequest;
 import holiday.garet.skyblock.island.Island;
 import holiday.garet.skyblock.island.IslandInvite;
 import holiday.garet.skyblock.island.SkyblockPlayer;
+import holiday.garet.skyblock.world.Generator;
+import holiday.garet.skyblock.world.Structure;
 
 @SuppressWarnings("deprecation")
 public class SimpleSkyblock extends JavaPlugin implements Listener {
@@ -133,6 +132,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		convertConfig("1.2.0","1.2.1");
     	} else if (config.getString("config-version").equalsIgnoreCase("1.2.1")) {
     		convertConfig("1.2.1","1.2.2");
+    	} else if (config.getString("config-version").equalsIgnoreCase("1.2.2") || config.getString("config-version").equalsIgnoreCase("1.3.0")) {
+    		// config is up to date. added this to keep track of needing to convert config again.
     	}
         this.saveDefaultConfig();
         this.getConfig().options().copyDefaults(true);
@@ -171,7 +172,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                 @Override
                 public void run() {
                 	WorldCreator wc = new WorldCreator(worldName);
-	                wc.generator(new EmptyWorldGenerator());
+	                wc.generator(new Generator());
 	                wc.createWorld();
 	                skyWorld = getServer().getWorld(worldName);
                 }
@@ -183,7 +184,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                 @Override
                 public void run() {
                 	WorldCreator wc = new WorldCreator(worldName + "_nether");
-	                wc.generator(new EmptyWorldGenerator());
+	                wc.generator(new Generator());
 	                wc.createWorld();
 	                skyNether = getServer().getWorld(worldName + "_nether");
                 }
@@ -191,7 +192,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	}
     	toClear = data.getStringList("data.toClear");
     	if (data.isSet("data.nextIsland")) {
-    		nextIsland = new Location(skyWorld, data.getInt("data.nextIsland.x"), config.getInt("ISLAND_HEIGHT"), config.getInt("data.nextIsland.z"));
+    		nextIsland = new Location(skyWorld, data.getInt("data.nextIsland.x"), config.getInt("ISLAND_HEIGHT"), data.getInt("data.nextIsland.x"));
     	} else {
     		nextIsland = new Location(skyWorld, -config.getInt("LIMIT_X"), config.getInt("ISLAND_HEIGHT"),-config.getInt("LIMIT_Z"));
     	}
@@ -249,7 +250,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     public ChunkGenerator getDefaultWorldGenerator(String worldName, String id) {
-    	return new EmptyWorldGenerator();
+    	return new Generator();
     }
     
     @Override
@@ -269,6 +270,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                              Command command,
                              String label,
                              String[] args) {
+		getLogger().info("" + nextIsland);
         if (command.getName().equalsIgnoreCase("island") || command.getName().equalsIgnoreCase("is")) {
         	if (sender instanceof Player) {
     			Player p = (Player) sender;
@@ -1623,90 +1625,16 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 
 	public void generateIsland(Location loc, Player p, Island playerIsland) {
 		
-		getLogger().info("Generating Default Island at " + loc);
+		Structure iss = new Structure(loc, defaultStructure, skyWorld, config, getLogger());
+		iss.generate();
 		
-		int x1 = loc.getBlockX();
-		int y1 = loc.getBlockY();
-		int z1 = loc.getBlockZ();
-		
-		int length = defaultStructure.getInt("depth");
-		int width = defaultStructure.getInt("width");
-		int height = defaultStructure.getInt("height");
-		
-		int x2 = x1 + length;
-		int y2 = y1 + height;
-		int z2 = z1 + width;
-		
-		// spawn blocks
-		
-		Location toSetAir = null;
-		
-		for (int x = x1; x < x2; x++) {
-			for (int y = y1; y < y2; y++) {
-				for (int z = z1; z < z2; z++) {
-					Block currentBlock = skyWorld.getBlockAt(x, y, z);
-					String currentType = defaultStructure.getString("map." + String.valueOf(y-y1) + "." + String.valueOf(z-z1) + "." + String.valueOf(x-x1));
-					if (currentType.equalsIgnoreCase("ore")) {
-    					if (config.getBoolean("GENERATE_ORES")) { // spice things up
-    						double oreType = Math.random() * 100.0;
-    						List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
-    					    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
-    					    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
-    					    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
-    					    	if (itemMat != null) {
-    					    		oreType -= itemChance;
-    					    		if (oreType < 0) {
-    					    			currentBlock.setType(itemMat);
-    					    			break;
-    					    		}
-    					    	} else {
-    					    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
-    					    	}
-    					    }
-    					    if (currentBlock.getType() == XMaterial.AIR.parseMaterial()) {
-    					    	currentBlock.setType(XMaterial.COBBLESTONE.parseMaterial());
-    					    }
-    					} else {
-    						currentBlock.setType(XMaterial.DIRT.parseMaterial());
-    					}
-					} else if (currentType.equalsIgnoreCase("tree")) {
-						skyWorld.generateTree(new Location(skyWorld,x,y,z), TreeType.TREE);
-					} else if (currentType.equalsIgnoreCase("item_chest")) {
-						skyWorld.getBlockAt(new Location(skyWorld,x,y,z)).setType(XMaterial.CHEST.parseMaterial());
-						Chest chest = (Chest) skyWorld.getBlockAt(new Location(skyWorld,x,y,z)).getState();
-					    Inventory chestinv = chest.getBlockInventory();
-					    List<String> CHEST_ITEMS = config.getStringList("CHEST_ITEMS");
-					    for(int i = 0; i < CHEST_ITEMS.size(); i++) {
-					    	Material itemMat = XMaterial.matchXMaterial(CHEST_ITEMS.get(i).split(":")[0]).get().parseMaterial();
-					    	int itemCnt = Integer.parseInt(CHEST_ITEMS.get(i).split(":")[1]);
-					    	if (itemMat != null) {
-					    		chestinv.addItem(new ItemStack(itemMat,itemCnt));
-					    	} else {
-					    		getLogger().severe("Unknown material \'" + CHEST_ITEMS.get(i).split(":")[0] + "\' at CHEST_ITEMS item " + (i + 1) + "!");
-					    	}
-					    }
-					} else if (currentType.equalsIgnoreCase("player_spawn")) {
-					    p.setFallDistance(0);
-					    p.teleport(new Location(skyWorld,x+.5,y,z+.5), TeleportCause.PLUGIN);
-					    p.setBedSpawnLocation(new Location(skyWorld,x+.5,y,z+.5), true);
-					    toSetAir = new Location(skyWorld,x,y+1,z);
-					} else {
-						Material mat = XMaterial.matchXMaterial(currentType).get().parseMaterial();
-						if (mat != null) {
-							currentBlock.setType(mat);
-						} else {
-							getLogger().severe("UNKNOWN MATERIAL '" + currentType + "' AT 'structures/default.yml'!");
-						}
-					}
-				}
-			}
-		}
-
-		skyWorld.getBlockAt(toSetAir).setType(XMaterial.AIR.parseMaterial());
+		p.setFallDistance(0);
+		p.teleport(iss.getPlayerSpawn());
+		p.setBedSpawnLocation(iss.getPlayerSpawn(), false);
 	    
 	    // set values
-	    Location np1 = new Location(skyWorld,x1-(config.getInt("ISLAND_WIDTH")/2),0,z1-(config.getInt("ISLAND_DEPTH")/2));
-	    Location np2 = new Location(skyWorld,x1+(config.getInt("ISLAND_WIDTH")/2),skyWorld.getMaxHeight(),z1+(config.getInt("ISLAND_DEPTH")/2));
+	    Location np1 = new Location(skyWorld,loc.getX()-(config.getInt("ISLAND_WIDTH")/2),0,loc.getZ()-(config.getInt("ISLAND_DEPTH")/2));
+	    Location np2 = new Location(skyWorld,loc.getX()+(config.getInt("ISLAND_WIDTH")/2),skyWorld.getMaxHeight(),loc.getZ()+(config.getInt("ISLAND_DEPTH")/2));
 	    SkyblockPlayer sp = getSkyblockPlayer(p);
 	    if (playerIsland == null) {
 		    Island newIs = new Island(np1, np2, 100, nextIslandKey, p, skyWorld, data, this);
@@ -1731,70 +1659,18 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    }
 	    
 	    // set next island location
-	    if (x1 < config.getInt("LIMIT_X")) {
-	    	nextIsland = new Location(skyWorld, x1+config.getInt("ISLAND_WIDTH"), config.getInt("ISLAND_HEIGHT"), z1);
+	    if (loc.getX() < config.getInt("LIMIT_X")) {
+	    	nextIsland = new Location(skyWorld, loc.getX()+config.getInt("ISLAND_WIDTH"), config.getInt("ISLAND_HEIGHT"), loc.getZ());
 	    } else {
-	    	nextIsland = new Location(skyWorld, -config.getInt("LIMIT_X"), config.getInt("ISLAND_HEIGHT"), z1+config.getInt("ISLAND_DEPTH"));
+	    	nextIsland = new Location(skyWorld, -config.getInt("LIMIT_X"), config.getInt("ISLAND_HEIGHT"), loc.getZ()+config.getInt("ISLAND_DEPTH"));
 	    }
 	}
 	
 	public void generateNetherIsland(Location loc) {
 		
-		getLogger().info("Generating Nether Island at " + loc);
+		Structure iss = new Structure(loc, netherStructure, skyNether, config, getLogger());
+		iss.generate();
 		
-		int x1 = loc.getBlockX();
-		int y1 = loc.getBlockY();
-		int z1 = loc.getBlockZ();
-		
-		int length = netherStructure.getInt("depth");
-		int width = netherStructure.getInt("width");
-		int height = netherStructure.getInt("height");
-		
-		int x2 = x1 + length;
-		int y2 = y1 + height;
-		int z2 = z1 + width;
-		
-		// spawn blocks
-		
-		for (int x = x1; x < x2; x++) {
-			for (int y = y1; y < y2; y++) {
-				for (int z = z1; z < z2; z++) {
-					Block currentBlock = skyNether.getBlockAt(x, y, z);
-					String currentType = netherStructure.getString("map." + String.valueOf(y-y1) + "." + String.valueOf(z-z1) + "." + String.valueOf(x-x1));
-					if (currentType.equalsIgnoreCase("ore")) {
-    					if (config.getBoolean("GENERATE_ORES")) { // spice things up
-    						double oreType = Math.random() * 100.0;
-    						List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
-    					    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
-    					    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
-    					    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
-    					    	if (itemMat != null) {
-    					    		oreType -= itemChance;
-    					    		if (oreType < 0) {
-    					    			currentBlock.setType(itemMat);
-    					    			break;
-    					    		}
-    					    	} else {
-    					    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
-    					    	}
-    					    }
-    					    if (currentBlock.getType() == XMaterial.AIR.parseMaterial()) {
-    					    	currentBlock.setType(XMaterial.COBBLESTONE.parseMaterial());
-    					    }
-    					} else {
-    						currentBlock.setType(XMaterial.DIRT.parseMaterial());
-    					}
-					} else {
-						Material mat = XMaterial.matchXMaterial(currentType).get().parseMaterial();
-						if (mat != null) {
-							currentBlock.setType(mat);
-						} else {
-							getLogger().severe("UNKNOWN MATERIAL '" + currentType + "' AT 'structures/nether.yml'!");
-						}
-					}
-				}
-			}
-		}
 	}
 
 	public static void noCollideAddPlayer(Player p) {
