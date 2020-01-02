@@ -46,6 +46,7 @@ public class Island {
 	Boolean allowVisitors = true;
 	Boolean canReset = true;
 	Boolean visitorsCanRideMobs = false;
+	Boolean visitorsCanPortal = true;
 	Boolean nether;
 	double points;
 	Plugin plugin;
@@ -68,6 +69,7 @@ public class Island {
 			members = data.getStringList("data.islands." + islandKey + ".members");
 			allowVisitors = data.getBoolean("data.islands." + islandKey + ".allowVisitors");
 			visitorsCanRideMobs = data.getBoolean("data.islands." + islandKey + ".visitorsCanRideMobs");
+			visitorsCanPortal = data.getBoolean("data.islands." + islandKey + ".visitorsCanPortal");
 			points = data.getDouble("data.islands." + islandKey + ".points");
 			canReset = data.getBoolean("data.islands." + islandKey + ".canReset");
 			if (data.isSet("data.islands." + String.valueOf(islandKey) + ".nether")) {
@@ -131,6 +133,7 @@ public class Island {
 		data.set("data.islands." + String.valueOf(islandKey) + ".members", members);
 		data.set("data.islands." + String.valueOf(islandKey) + ".allowVisitors", allowVisitors);
 		data.set("data.islands." + String.valueOf(islandKey) + ".visitorsCanRideMobs", visitorsCanRideMobs);
+		data.set("data.islands." + String.valueOf(islandKey) + ".visitorsCanPortal", visitorsCanPortal);
 		data.set("data.islands." + String.valueOf(islandKey) + ".canReset", canReset);
 		data.set("data.islands." + String.valueOf(islandKey) + ".points", points);
 		data.set("data.islands." + String.valueOf(islandKey) + ".nether", nether);
@@ -279,6 +282,14 @@ public class Island {
 	
 	public void setNether(Boolean _nether) {
 		nether = _nether;
+	}
+	
+	public Boolean visitorsCanPortal() {
+		return visitorsCanPortal;
+	}
+	
+	public void setVisitorsCanPortal(Boolean _value) {
+		visitorsCanPortal = _value;
 	}
 	
 }

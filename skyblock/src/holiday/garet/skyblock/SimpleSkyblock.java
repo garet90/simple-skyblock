@@ -229,7 +229,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    				islands.add(playerIsland);
 	    			}
 	    		}
-    			players.add(new SkyblockPlayer(p, playerIsland, skyWorld, data, this));
+    			players.add(new SkyblockPlayer(p, playerIsland, skyWorld, skyNether, data, this));
         		SkyblockPlayer sp = getSkyblockPlayer(p);
         		if (config.getBoolean("DISABLE_PLAYER_COLLISIONS")) {
         			noCollideAddPlayer(p);
@@ -449,7 +449,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            			if (playerIsland.visitorsCanRideMobs()) {
 			            				visitorsCanRideMobs = ChatColor.GREEN;
 			            			}
-			            			sender.sendMessage("Island Settings: " + allowVisitors + "allow-visitors" + ChatColor.RESET + ", " + visitorsCanRideMobs + "visitors-can-ride-mobs");
+			            			ChatColor visitorsCanPortal = ChatColor.RED;
+			            			if (playerIsland.visitorsCanPortal()) {
+			            				visitorsCanPortal = ChatColor.GREEN;
+			            			}
+			            			sender.sendMessage("Island Settings: " + allowVisitors + "allow-visitors" + ChatColor.RESET + ", " + visitorsCanRideMobs + "visitors-can-ride-mobs" + ChatColor.RESET + ", " + visitorsCanPortal + "visitors-can-portal");
 			            			return true;
 			            		} else if (args[1].equalsIgnoreCase("allow-visitors")) {
 			            			if (args.length > 2) {
@@ -475,6 +479,22 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            				} else if (args[2].equalsIgnoreCase("false")) {
 			            					playerIsland.setVisitorsCanRideMobs(false);
 			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'visitors-can-ride-mobs\' was set to false.");
+			            				} else {
+				                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+			            				}
+			            				return true;
+			            			} else {
+			                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+			                			return true;
+			            			}
+			            		} else if (args[1].equalsIgnoreCase("visitors-can-portal")) {
+			            			if (args.length > 2) {
+			            				if (args[2].equalsIgnoreCase("true")) {
+			            					playerIsland.setVisitorsCanPortal(true);
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'visitors-can-portal\' was set to true.");
+			            				} else if (args[2].equalsIgnoreCase("false")) {
+			            					playerIsland.setVisitorsCanPortal(false);
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'visitors-can-portal\' was set to false.");
 			            				} else {
 				                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
 			            				}
@@ -1310,7 +1330,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    				islands.add(playerIsland);
 	    			}
 	    		}
-    			players.add(new SkyblockPlayer(p, playerIsland, skyWorld, data, this));
+    			players.add(new SkyblockPlayer(p, playerIsland, skyWorld, skyNether, data, this));
+    		} else {
+    	    	if (sp.wasVisiting()) {
+    	    		sp.goHome(p);
+    	    	}
     		}
     		sp = getSkyblockPlayer(p);
     		if (config.getBoolean("DISABLE_PLAYER_COLLISIONS") && (getServer().getVersion().contains("1.12") || getServer().getVersion().contains("1.13") || getServer().getVersion().contains("1.14") || getServer().getVersion().contains("1.15"))) {
@@ -1462,7 +1486,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					}
 				}
 			}
-			if (skyWorld.getGameRuleValue("keepInventory") != "true") {
+			if (skyWorld.getGameRuleValue("keepInventory") != "true" && !(!(sp.getIsland() != null && sp.getIsland().inBounds(p.getLocation())) && (p.getLocation().getWorld() == skyWorld || p.getLocation().getWorld() == skyNether))) {
 				p.getInventory().clear();
 				p.getInventory().setArmorContents(new ItemStack[4]);
 			}
@@ -1546,7 +1570,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			Player p = (Player) ent;
 	    	SkyblockPlayer sp = getSkyblockPlayer(p);
 	    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
-	    		if (!sp.getVisiting().getIsland().visitorsCanRideMobs()) {
+	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().visitorsCanRideMobs()) {
 	    			e.setCancelled(true);
 	    		}
 	    	}
@@ -1604,12 +1628,17 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
 		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
+			Player p = e.getPlayer();
+			SkyblockPlayer sp = getSkyblockPlayer(p);
+			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().visitorsCanPortal()) {
+	    			e.setCancelled(true);
+	    		}
+	    	}
 			Location newTo = e.getPlayer().getLocation();
 			if (newTo.getWorld() == skyWorld) {
 				newTo.setWorld(skyNether);
 				e.setTo(newTo);
-				Player p = e.getPlayer();
-				SkyblockPlayer sp = getSkyblockPlayer(p);
 				if (!sp.getIsland().getNether()) {
 					Location p1 = sp.getIsland().getP1();
 					p1.setWorld(skyNether);
@@ -1891,7 +1920,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     public SkyblockPlayer getSkyblockPlayer(OfflinePlayer p) {
     	if (getSkyblockPlayer(p.getUniqueId()) == null) {
-    		SkyblockPlayer sp = new SkyblockPlayer(p.getUniqueId(), getPlayerIsland(p), skyWorld, data, this);
+    		SkyblockPlayer sp = new SkyblockPlayer(p.getUniqueId(), getPlayerIsland(p), skyWorld, skyNether, data, this);
     		players.add(sp);
     		return sp;
     	} else {

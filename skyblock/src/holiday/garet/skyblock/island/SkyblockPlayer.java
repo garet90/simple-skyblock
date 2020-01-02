@@ -38,44 +38,66 @@ public class SkyblockPlayer {
 	Island island;
 	Location home;
 	World world;
+	World world_nether;
 	Plugin plugin;
 	FileConfiguration data;
 	SkyblockPlayer visiting;
+	Boolean wasVisiting = false;
 	
-	public SkyblockPlayer(Player _player, Island _island, World _world, FileConfiguration _data, Plugin _plugin) {
+	public SkyblockPlayer(Player _player, Island _island, World _world, World _world_nether, FileConfiguration _data, Plugin _plugin) {
 		
 		player = _player.getUniqueId();
 		island = _island;
 		data = _data;
 		plugin = _plugin;
 		world = _world;
+		world_nether = _world_nether;
 		if (data.isSet("data.players." + player.toString() + ".home")) {
-			home = new Location(world,
+			World homeWorld = world;
+			if (data.getBoolean("data.players." + player.toString() + ".home.nether")) {
+				homeWorld = world_nether;
+			}
+			home = new Location(homeWorld,
 					data.getDouble("data.players." + player.toString() + ".home.x"),
 					data.getDouble("data.players." + player.toString() + ".home.y"),
 					data.getDouble("data.players." + player.toString() + ".home.z"),
-					data.getInt("data.players." + player.toString() + ".home.pitch"),
-					data.getInt("data.players." + player.toString() + ".home.yaw"));
+					data.getInt("data.players." + player.toString() + ".home.yaw"),
+					data.getInt("data.players." + player.toString() + ".home.pitch"));
 		}
-		
+		if (data.isSet("data.players." + player.toString() + ".visiting")) {
+			if (home != null) {
+				_player.teleport(home);
+				_player.setBedSpawnLocation(home, false);
+			} else {
+				_player.teleport(_world.getSpawnLocation());
+				_player.setBedSpawnLocation(_world.getSpawnLocation(), false);
+			}
+		}
 	}
 	
-	public SkyblockPlayer(UUID _player, Island _island, World _world, FileConfiguration _data, Plugin _plugin) {
+	public SkyblockPlayer(UUID _player, Island _island, World _world, World _world_nether, FileConfiguration _data, Plugin _plugin) {
 		
 		player = _player;
 		island = _island;
 		data = _data;
 		plugin = _plugin;
 		world = _world;
+		world_nether = _world_nether;
 		if (data.isSet("data.players." + player.toString() + ".home")) {
-			home = new Location(world,
+			World homeWorld = world;
+			if (data.getBoolean("data.players." + player.toString() + ".home.nether")) {
+				homeWorld = world_nether;
+			}
+			home = new Location(homeWorld,
 					data.getDouble("data.players." + player.toString() + ".home.x"),
 					data.getDouble("data.players." + player.toString() + ".home.y"),
 					data.getDouble("data.players." + player.toString() + ".home.z"),
-					data.getInt("data.players." + player.toString() + ".home.pitch"),
-					data.getInt("data.players." + player.toString() + ".home.yaw"));
+					data.getInt("data.players." + player.toString() + ".home.yaw"),
+					data.getInt("data.players." + player.toString() + ".home.pitch"));
 		}
-		
+		if (data.isSet("data.players." + player.toString() + ".visiting")) {
+			wasVisiting = true;
+		}
 	}
 	
 	public void savePlayer() {
@@ -83,11 +105,19 @@ public class SkyblockPlayer {
 			data.set("data.players." + player.toString() + ".island", island.getKey());
 		}
 		if (home != null) {
+			if (home.getWorld() == world_nether) {
+				data.set("data.players." + player.toString() + ".home.nether", true);
+			} else {
+				data.set("data.players." + player.toString() + ".home.nether", false);
+			}
 			data.set("data.players." + player.toString() + ".home.x", home.getX());
 			data.set("data.players." + player.toString() + ".home.y", home.getY());
 			data.set("data.players." + player.toString() + ".home.z", home.getZ());
 			data.set("data.players." + player.toString() + ".home.pitch", (int)home.getPitch());
 			data.set("data.players." + player.toString() + ".home.yaw", (int)home.getYaw());
+		}
+		if (visiting != null) {
+			data.set("data.players." + player.toString() + ".visiting", visiting.getPlayerUUID().toString());
 		}
 	}
 	
@@ -121,6 +151,22 @@ public class SkyblockPlayer {
 	
 	public void setVisiting(SkyblockPlayer _visiting) {
 		visiting = _visiting;
+	}
+	
+	public void goHome(Player p) {
+		if (home != null) {
+			p.teleport(home);
+			p.setBedSpawnLocation(home, false);
+		} else {
+			p.teleport(world.getSpawnLocation());
+			p.setBedSpawnLocation(world.getSpawnLocation(), false);
+		}
+		wasVisiting = false;
+		visiting = null;
+	}
+	
+	public Boolean wasVisiting() {
+		return wasVisiting;
 	}
 	
 }

@@ -53,11 +53,11 @@ public class Generator extends ChunkGenerator {
         for (int x = 0; x < 16; x++) {
         	for (int z = 0; z < 16; z++) {
         		if (world.getEnvironment() == Environment.NETHER) {
-        			Biome nether = Biome.valueOf("HELL");
+        			Biome nether = Biome.valueOf("NETHER");
         			if (nether != null) {
         				biome.setBiome(x, z, nether);
         			} else {
-        				biome.setBiome(x, z, Biome.valueOf("NETHER"));
+        				biome.setBiome(x, z, Biome.valueOf("HELL"));
         			}
         		} else {
         			biome.setBiome(x, z, b);
