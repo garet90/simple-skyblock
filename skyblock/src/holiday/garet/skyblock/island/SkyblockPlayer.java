@@ -43,6 +43,8 @@ public class SkyblockPlayer {
 	FileConfiguration data;
 	SkyblockPlayer visiting;
 	Boolean wasVisiting = false;
+	Location skySpawn;
+	Location oldBedSpawn;
 	
 	public SkyblockPlayer(Player _player, Island _island, World _world, World _world_nether, FileConfiguration _data, Plugin _plugin) {
 		
@@ -167,6 +169,22 @@ public class SkyblockPlayer {
 	
 	public Boolean wasVisiting() {
 		return wasVisiting;
+	}
+	
+	public void setSkySpawn(Location _spawn) {
+		skySpawn = _spawn;
+	}
+	
+	public Location skySpawn() {
+		return skySpawn;
+	}
+	
+	public void setOldBedSpawn(Location _spawn) {
+		oldBedSpawn = _spawn;
+	}
+	
+	public Location oldBedSpawn() {
+		return oldBedSpawn;
 	}
 	
 }

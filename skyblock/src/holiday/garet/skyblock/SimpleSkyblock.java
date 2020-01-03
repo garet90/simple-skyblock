@@ -41,6 +41,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
+import org.bukkit.World.Environment;
 import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -76,6 +77,7 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.generator.ChunkGenerator;
@@ -185,6 +187,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                 public void run() {
                 	WorldCreator wc = new WorldCreator(worldName + "_nether");
 	                wc.generator(new Generator());
+	                wc.environment(Environment.NETHER);
 	                wc.createWorld();
 	                skyNether = getServer().getWorld(worldName + "_nether");
                 }
@@ -283,7 +286,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        		} else {
 	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleporting you to your island...");
 	        			p.teleport(sp.getHome(), TeleportCause.PLUGIN);
-	            		p.setBedSpawnLocation(p.getLocation(), true);
+	            		sp.setSkySpawn(p.getLocation());
 	        			p.setFallDistance(0);
 	        			sp.setVisiting(null);
 	        			return true;
@@ -315,7 +318,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             		if (sp.getHome() != null) {
 	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleporting you to your island...");
 	        			p.teleport(sp.getHome(), TeleportCause.PLUGIN);
-	            		p.setBedSpawnLocation(p.getLocation(), true);
+	            		sp.setSkySpawn(p.getLocation());
 	        			p.setFallDistance(0);
 	        			sp.setVisiting(null);
 	        			return true;
@@ -327,7 +330,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             		if (playerIsland != null) {
 	            		if (playerIsland.inBounds(p.getLocation())) {
 		            		sp.setHome(p.getLocation());
-		            		p.setBedSpawnLocation(p.getLocation(), true);
+		            		sp.setSkySpawn(p.getLocation());
 		            		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Your island home was set to your current location.");
 	            		} else {
 	            			sender.sendMessage(ChatColor.RED + "You must be on your island to use this command!");
@@ -417,7 +420,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			}
             			if ((sz.getHome() != null && !(p.getName().equalsIgnoreCase(args[1])) && allowsVisitors) || p.hasPermission("skyblock.admin")) {
                 			p.teleport(sz.getHome(), TeleportCause.PLUGIN);
-		            		p.setBedSpawnLocation(p.getLocation(), true);
+		            		sp.setSkySpawn(p.getLocation());
 		        			p.setFallDistance(0);
 		        			sp.setVisiting(sz);
                 			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleported you to " + pName + "\'s island.");
@@ -582,7 +585,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    				            p.teleport(sj.getHome(), TeleportCause.PLUGIN);
 	    				            p.setFallDistance(0);
 	    		        			sp.setVisiting(null);
-	    				    	    p.setBedSpawnLocation(sj.getHome(), true);
+	    				    	    sp.setSkySpawn(sj.getHome());
 	                    			toJoin.addPlayer(p);
 	                    			sp.setIsland(toJoin);
 	                    			toJoin.messageAllMembers(ChatColor.GREEN + p.getName() + " has joined your island.", p);
@@ -1043,6 +1046,17 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		sender.sendMessage(ChatColor.RED + "Skyblock Economy is disabled!");
         		return true;
         	}
+        } else if (command.getName().equalsIgnoreCase("spawn")) {
+        	if (sender instanceof Player) {
+        		Player p = (Player) sender;
+        		World sw = getServer().getWorlds().get(0);
+        		p.teleport(sw.getSpawnLocation());
+        		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleporting you to spawn...");
+        		return true;
+        	} else {
+        		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
+        		return true;
+        	}
         }
         return false;
     }
@@ -1335,6 +1349,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	    	if (sp.wasVisiting()) {
     	    		sp.goHome(p);
     	    	}
+    	    	sp.setSkySpawn(sp.getHome());
     		}
     		sp = getSkyblockPlayer(p);
     		if (config.getBoolean("DISABLE_PLAYER_COLLISIONS") && (getServer().getVersion().contains("1.12") || getServer().getVersion().contains("1.13") || getServer().getVersion().contains("1.14") || getServer().getVersion().contains("1.15"))) {
@@ -1457,13 +1472,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		SkyblockPlayer sp = getSkyblockPlayer(p);
 		if (config.getBoolean("VOID_INSTANT_DEATH") && p.getLocation().getY() < -10) {
 			p.sendMessage(ChatColor.RED + "You fell into the void.");
-			if (p.getBedSpawnLocation() != null) {
-				p.teleport(p.getBedSpawnLocation(), TeleportCause.PLUGIN);
+			if (sp.skySpawn() != null && (p.getWorld() == skyWorld || p.getWorld() == skyNether)) {
+				p.teleport(sp.skySpawn(), TeleportCause.PLUGIN);
 			} else {
-				if (sp.getHome() != null) {
+				if (sp.getHome() != null && (p.getWorld() == skyWorld || p.getWorld() == skyNether)) {
 					p.teleport(sp.getHome(), TeleportCause.PLUGIN);
 				} else {
-					p.teleport(skyWorld.getSpawnLocation(), TeleportCause.PLUGIN);
+					p.teleport(p.getBedSpawnLocation());
 				}
 			}
 			p.setVelocity(new Vector(0,0,0));
@@ -1498,6 +1513,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		Entity ent = e.getEntity();
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
+			SkyblockPlayer sp = getSkyblockPlayer(p);
+			if ((p.getLocation().getWorld() == skyWorld || p.getLocation().getWorld() == skyNether) && sp.skySpawn() != null) {
+				sp.setOldBedSpawn(p.getBedSpawnLocation());
+				p.setBedSpawnLocation(sp.skySpawn(), true);
+			}
 			if (config.getBoolean("USE_ECONOMY")) {
 				if (usingVault) {
 					Double loss = vaultEconomy.getBalance(p) / 2;
@@ -1512,6 +1532,16 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					econ.set(loss);
 				}
 			}
+		}
+	}
+	
+	@EventHandler
+	public void onPlayerRespawn(PlayerRespawnEvent e) {
+		Player p = e.getPlayer();
+		SkyblockPlayer sp = getSkyblockPlayer(p);
+		if (sp.oldBedSpawn() != null) {
+			p.setBedSpawnLocation(sp.oldBedSpawn(), false);
+			sp.setOldBedSpawn(null);
 		}
 	}
 	
@@ -1624,7 +1654,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			}
 		}
 	}
-	
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
 		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
@@ -1644,6 +1673,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					p1.setWorld(skyNether);
 					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
 					sp.getIsland().setNether(true);
+				}
+				if (newTo.getBlock() != null && newTo.getBlock().getRelative(BlockFace.DOWN,1).getType() == XMaterial.AIR.parseMaterial()) {
+					newTo.getBlock().getRelative(BlockFace.DOWN,1).setType(XMaterial.OBSIDIAN.parseMaterial());
+					newTo.getBlock().setType(XMaterial.AIR.parseMaterial());
+					newTo.getBlock().getRelative(BlockFace.UP,1).setType(XMaterial.AIR.parseMaterial());
 				}
 			} else if (newTo.getWorld() == skyNether) {
 				newTo.setWorld(skyWorld);
@@ -1666,6 +1700,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					p1.setWorld(skyNether);
 					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
 					sp.getIsland().setNether(true);
+				}
+				if (newTo.getBlock() != null && newTo.getBlock().getRelative(BlockFace.DOWN,1).getType() == XMaterial.AIR.parseMaterial()) {
+					newTo.getBlock().getRelative(BlockFace.DOWN,1).setType(XMaterial.OBSIDIAN.parseMaterial());
+					newTo.getBlock().setType(XMaterial.AIR.parseMaterial());
+					newTo.getBlock().getRelative(BlockFace.UP,1).setType(XMaterial.AIR.parseMaterial());
 				}
 			} else if (newTo.getWorld() == skyNether) {
 				newTo.setWorld(skyWorld);
@@ -1695,12 +1734,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		
 		p.setFallDistance(0);
 		p.teleport(iss.getPlayerSpawn());
-		p.setBedSpawnLocation(iss.getPlayerSpawn(), false);
 	    
 	    // set values
 	    Location np1 = new Location(skyWorld,loc.getX()-(config.getInt("ISLAND_WIDTH")/2),0,loc.getZ()-(config.getInt("ISLAND_DEPTH")/2));
 	    Location np2 = new Location(skyWorld,loc.getX()+(config.getInt("ISLAND_WIDTH")/2),skyWorld.getMaxHeight(),loc.getZ()+(config.getInt("ISLAND_DEPTH")/2));
 	    SkyblockPlayer sp = getSkyblockPlayer(p);
+	    sp.setSkySpawn(iss.getPlayerSpawn());
 	    if (playerIsland == null) {
 		    Island newIs = new Island(np1, np2, 100, nextIslandKey, p, skyWorld, data, this);
 		    nextIslandKey++;
