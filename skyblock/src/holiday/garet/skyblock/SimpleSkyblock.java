@@ -128,6 +128,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
     @Override
     public void onEnable() {
+        @SuppressWarnings("unused")
+		Metrics metrics = new Metrics(this);
     	Bukkit.getPluginManager().registerEvents(this, this);
     	if (config.isSet("data")) {
     		// if the config is out of date, lets fix that.
@@ -413,7 +415,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             				getServer().getPlayer(args[1]).getUniqueId().toString();
             				sz = getSkyblockPlayer(getServer().getPlayer(args[1]));
             			}
-            			Boolean allowsVisitors = sz.getIsland().allowsVisitors();
+            			Boolean allowsVisitors = false;
+            			if (sz.getIsland() != null) {
+            				allowsVisitors = sz.getIsland().allowsVisitors();
+            			}
             			if (playerIsland != null && sz.getIsland() == playerIsland) {
             				sender.sendMessage(ChatColor.RED + "You can\'t visit your own island!");
             				return true;
@@ -1470,15 +1475,17 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	public void onPlayerMove(PlayerMoveEvent e) {
 		Player p = e.getPlayer();
 		SkyblockPlayer sp = getSkyblockPlayer(p);
-		if (config.getBoolean("VOID_INSTANT_DEATH") && p.getLocation().getY() < -10) {
+		if (config.getBoolean("VOID_INSTANT_DEATH") && p.getLocation().getY() < -10 && sp != null) {
 			p.sendMessage(ChatColor.RED + "You fell into the void.");
 			if (sp.skySpawn() != null && (p.getWorld() == skyWorld || p.getWorld() == skyNether)) {
 				p.teleport(sp.skySpawn(), TeleportCause.PLUGIN);
 			} else {
 				if (sp.getHome() != null && (p.getWorld() == skyWorld || p.getWorld() == skyNether)) {
 					p.teleport(sp.getHome(), TeleportCause.PLUGIN);
-				} else {
+				} else if (p.getBedSpawnLocation() != null) {
 					p.teleport(p.getBedSpawnLocation());
+				} else {
+					p.teleport(p.getWorld().getSpawnLocation());
 				}
 			}
 			p.setVelocity(new Vector(0,0,0));
@@ -1501,7 +1508,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					}
 				}
 			}
-			if (skyWorld.getGameRuleValue("keepInventory") != "true" && !(!(sp.getIsland() != null && sp.getIsland().inBounds(p.getLocation())) && (p.getLocation().getWorld() == skyWorld || p.getLocation().getWorld() == skyNether))) {
+			if (skyWorld.getGameRuleValue("keepInventory") != "true" && !(!(sp.getIsland() != null && sp.getIsland().inBounds(p.getLocation())) && (p.getLocation().getWorld() == skyWorld || p.getLocation().getWorld() == skyNether)) && p.getGameMode() != GameMode.CREATIVE) {
 				p.getInventory().clear();
 				p.getInventory().setArmorContents(new ItemStack[4]);
 			}
