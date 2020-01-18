@@ -43,8 +43,10 @@ public class Island {
 	Location p2;
 	String leader;
 	List<String> members;
+	List<String> trusts;
 	Boolean allowVisitors = true;
 	Boolean canReset = true;
+	int resetsLeft;
 	Boolean visitorsCanRideMobs = false;
 	Boolean visitorsCanPortal = true;
 	Boolean nether;
@@ -72,6 +74,8 @@ public class Island {
 			visitorsCanPortal = data.getBoolean("data.islands." + islandKey + ".visitorsCanPortal");
 			points = data.getDouble("data.islands." + islandKey + ".points");
 			canReset = data.getBoolean("data.islands." + islandKey + ".canReset");
+			resetsLeft = data.getInt("data.islands." + islandKey + ".resetsLeft");
+			trusts = data.getStringList("data.islands." + islandKey + ".trusts");
 			if (data.isSet("data.islands." + String.valueOf(islandKey) + ".nether")) {
 				nether = data.getBoolean("data.islands." + String.valueOf(islandKey) + ".nether");
 			} else {
@@ -80,7 +84,7 @@ public class Island {
 		}
 	}
 	
-	public Island(Location _p1, Location _p2, double _pts, int _islandKey, Player _leader, World _world, FileConfiguration _data, Plugin _plugin) {
+	public Island(Location _p1, Location _p2, double _pts, int _islandKey, Player _leader, World _world, int _resetsLeft, FileConfiguration _data, Plugin _plugin) {
 		p1 = _p1;
 		p2 = _p2;
 		islandKey = _islandKey;
@@ -88,12 +92,10 @@ public class Island {
 		world = _world;
 		plugin = _plugin;
 		data = _data;
+		resetsLeft = _resetsLeft;
 		members = new ArrayList<String>();
-		if (data.isSet("data.islands." + String.valueOf(islandKey) + ".nether")) {
-			nether = data.getBoolean("data.islands." + String.valueOf(islandKey) + ".nether");
-		} else {
-			nether = false;
-		}
+		nether = false;
+		trusts = new ArrayList<String>();
 	}
 	
 	public Island(World _world, Location _p1, Location _p2, Player _leader, FileConfiguration _data) {
@@ -137,12 +139,16 @@ public class Island {
 		data.set("data.islands." + String.valueOf(islandKey) + ".canReset", canReset);
 		data.set("data.islands." + String.valueOf(islandKey) + ".points", points);
 		data.set("data.islands." + String.valueOf(islandKey) + ".nether", nether);
+		data.set("data.islands." + String.valueOf(islandKey) + ".resetsLeft", resetsLeft);
+		data.set("data.islands." + String.valueOf(islandKey) + ".trusts", trusts);
 	}
 	
 	public boolean hasPlayer(Player p) {
-		String playerUUID = p.getUniqueId().toString();
-		if (leader.equalsIgnoreCase(playerUUID) || members.contains(playerUUID)) {
-			return true;
+		if (p != null) {
+			String playerUUID = p.getUniqueId().toString();
+			if (leader.equalsIgnoreCase(playerUUID) || members.contains(playerUUID)) {
+				return true;
+			}
 		}
 		return false;
 	}
@@ -290,6 +296,36 @@ public class Island {
 	
 	public void setVisitorsCanPortal(Boolean _value) {
 		visitorsCanPortal = _value;
+	}
+	
+	public void removeReset() {
+		resetsLeft -= 1;
+		if (resetsLeft == 0) {
+			setCanReset(false);
+		}
+	}
+	
+	public int getResetsLeft() {
+		return resetsLeft;
+	}
+	
+	public Boolean trustContains(UUID _uuid) {
+		for (int i = 0; i < trusts.size(); i++) {
+			if (trusts.get(i).equalsIgnoreCase(String.valueOf(_uuid))) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public void trustPlayer(UUID _uuid) {
+		if (!trustContains(_uuid)) {
+			trusts.add(String.valueOf(_uuid));
+		}
+	}
+
+	public void removeTrust(UUID _uuid) {
+		trusts.remove(String.valueOf(_uuid));
 	}
 	
 }

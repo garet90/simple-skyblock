@@ -69,6 +69,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -108,9 +109,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	FileConfiguration data = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "data.yml"));
 	FileConfiguration defaultStructure = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "structures" + File.separator + "default.yml"));
 	FileConfiguration netherStructure = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml"));
+	FileConfiguration language = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "language.yml"));
 
-	List<SkyblockPlayer> players = new ArrayList<SkyblockPlayer>();
-	List<Island> islands = new ArrayList<Island>();
+	public static List<SkyblockPlayer> players = new ArrayList<SkyblockPlayer>();
+	public static List<Island> islands = new ArrayList<Island>();
 	List<TradeRequest> tradingRequests = new ArrayList<TradeRequest>();
 	List<IslandInvite> islandInvites = new ArrayList<IslandInvite>();
 	
@@ -137,7 +139,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	} else if (config.getString("config-version").equalsIgnoreCase("1.2.1")) {
     		convertConfig("1.2.1","1.2.2");
     	} else if (config.getString("config-version").equalsIgnoreCase("1.2.2") || config.getString("config-version").equalsIgnoreCase("1.3.0")) {
-    		// config is up to date. added this to keep track of needing to convert config again.
+    		getLogger().warning("Your configuration file is out of date! You may continue to use it, but it may not contain the latest settings.");
+    	} else if (config.getString("config-version").equalsIgnoreCase("1.4.0")) {
+    		// config is up to date.
     	}
         this.saveDefaultConfig();
         this.getConfig().options().copyDefaults(true);
@@ -157,6 +161,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				netherStructure.save(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml");
 			} catch (Exception e) {
 				getLogger().warning("Unable to save nether island structure!");
+			}
+    	}
+    	File langFile = new File(getDataFolder(), "language.yml");
+    	if (!langFile.exists()) {
+    		try {
+				language = YamlConfiguration.loadConfiguration(new InputStreamReader(this.getResource("language.yml"), "UTF8"));
+				language.save(getDataFolder() + File.separator + "language.yml");
+			} catch (Exception e) {
+				getLogger().warning("Unable to save language.yml!");
 			}
     	}
     	final String worldName;
@@ -248,6 +261,17 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		}
         	}
     	}
+    	if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null){
+            new SkyPlaceholderExpansion(this).register();
+    	}
+    }
+    
+    public String getLanguage(String _key) {
+    	if (language.isSet(_key)) {
+    		return language.getString(_key).replace("&", "§");
+    	}
+    	getLogger().warning(_key + " not found in language.yml!");
+    	return "";
     }
     
     public boolean activateVault() {
@@ -282,11 +306,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     			SkyblockPlayer sp = getSkyblockPlayer(p);
             	if (args.length == 0) {
 	        		if (playerIsland == null) {
-			            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Generating island...");
+			            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("generating-island"));
 			            generateIsland(nextIsland, p, null);
 			            return true;
 	        		} else {
-	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleporting you to your island...");
+	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("teleporting-to-island"));
 	        			p.teleport(sp.getHome(), TeleportCause.PLUGIN);
 	            		sp.setSkySpawn(p.getLocation());
 	        			p.setFallDistance(0);
@@ -314,18 +338,21 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is visit <player>" + ChatColor.RESET + ": visit another player\'s island.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is settings <setting | list> [true | false]" + ChatColor.RESET + ": change various island settings.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is invite <player>" + ChatColor.RESET + ": invite a player to join your island.");
+	            		if (config.getBoolean("USE_TRUSTS")) {
+		            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is trust <add | remove> <player>" + ChatColor.RESET + ": trust a player as if they were a member of your island.");
+	            		}
 	            		return true;
             		}
             	} else if (args[0].equalsIgnoreCase("home")) {
             		if (sp.getHome() != null) {
-	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleporting you to your island...");
+	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("teleporting-to-island"));
 	        			p.teleport(sp.getHome(), TeleportCause.PLUGIN);
 	            		sp.setSkySpawn(p.getLocation());
 	        			p.setFallDistance(0);
 	        			sp.setVisiting(null);
 	        			return true;
             		} else {
-            			sender.sendMessage(ChatColor.RED + "You must have an island to teleport to it!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
             		}
             	} else if (args[0].equalsIgnoreCase("sethome")) {
@@ -333,13 +360,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            		if (playerIsland.inBounds(p.getLocation())) {
 		            		sp.setHome(p.getLocation());
 		            		sp.setSkySpawn(p.getLocation());
-		            		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Your island home was set to your current location.");
+		            		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("set-island-home"));
 	            		} else {
-	            			sender.sendMessage(ChatColor.RED + "You must be on your island to use this command!");
+	            			sender.sendMessage(ChatColor.RED + getLanguage("not-on-island"));
 	            		}
 	            		return true;
             		} else {
-            			sender.sendMessage(ChatColor.RED + "You must have an island to set home!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
             		}
             	} else if (args[0].equalsIgnoreCase("reset")) {
@@ -368,32 +395,32 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 						            			tempInv.clear();
 						            			tempInv.setArmorContents(new ItemStack[4]);
 						            			tempP.teleport(sp.getHome(), TeleportCause.PLUGIN);
-						            			tempP.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Your island was reset successfully.");
+						            			tempP.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-success"));
 						            		}
 						            	}
 						            }
 						            PlayerInventory inv = p.getInventory();
 						            inv.clear();
 						            inv.setArmorContents(new ItemStack[4]);
-						            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Your island was reset successfully.");
+						            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-success"));
 			            			return true;
 		            			} else {
-		            				sender.sendMessage(ChatColor.RED + "To prevent abuse, you may only reset your island once at this time. Please contact a server admin if you have a problem.");
+		            				sender.sendMessage(ChatColor.RED + getLanguage("reset-no-resets"));
 		            				return true;
 		            			}
 		            		} else {
-		            			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Are you sure? This action is irreversable! This will reset your inventory, balance, and island as well as those of all the island\'s members. Type \"/is reset confirm\" to continue.");
+		            			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-confirm"));
 		            			if (!config.getBoolean("INFINITE_RESETS")) {
-		            				sender.sendMessage(ChatColor.RED + "YOU MAY ONLY RESET YOUR ISLAND ONE TIME!");
+		            				sender.sendMessage(ChatColor.RED + getLanguage("reset-warn").replace("{resets}", String.valueOf(playerIsland.getResetsLeft())));
 		            			}
 		            			return true;
 		            		}
 	            		} else {
-	            			sender.sendMessage(ChatColor.RED + "You must be island leader to use this command!");
+	            			sender.sendMessage(ChatColor.RED + getLanguage("leader-only"));
 	            			return true;
 	            		}
             		} else {
-            			sender.sendMessage(ChatColor.RED + "You must have an island to reset it!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
             		}
             	} else if (args[0].equalsIgnoreCase("visit")) {
@@ -407,7 +434,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            				pName = op.getName();
 	            				sz = getSkyblockPlayer(op);
 	            			} else {
-	            				sender.sendMessage(ChatColor.RED + "That user doesn\'t have an island!");
+	            				sender.sendMessage(ChatColor.RED + getLanguage("visit-no-island"));
 	            				return true;
 	            			}
             			} else {
@@ -420,7 +447,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             				allowsVisitors = sz.getIsland().allowsVisitors();
             			}
             			if (playerIsland != null && sz.getIsland() == playerIsland) {
-            				sender.sendMessage(ChatColor.RED + "You can\'t visit your own island!");
+            				sender.sendMessage(ChatColor.RED + getLanguage("visit-own-island"));
             				return true;
             			}
             			if ((sz.getHome() != null && !(p.getName().equalsIgnoreCase(args[1])) && allowsVisitors) || p.hasPermission("skyblock.admin")) {
@@ -428,20 +455,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            		sp.setSkySpawn(p.getLocation());
 		        			p.setFallDistance(0);
 		        			sp.setVisiting(sz);
-                			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleported you to " + pName + "\'s island.");
+                			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("visit-teleport").replace("{player}", pName));
                 			return true;
             			} else if (p.getName().equalsIgnoreCase(args[1])) { 
-            				sender.sendMessage(ChatColor.RED + "You can\'t visit yourself!");
+            				sender.sendMessage(ChatColor.RED + getLanguage("visit-own-island"));
             				return true;
             			} else if (!(allowsVisitors)) {
-            				sender.sendMessage(ChatColor.RED + "That island doesn\'t allow visitors.");
+            				sender.sendMessage(ChatColor.RED + getLanguage("visit-no-visitors"));
             				return true;
             			} else {
-            				sender.sendMessage(ChatColor.RED + "That user doesn\'t have an island!");
+            				sender.sendMessage(ChatColor.RED + getLanguage("visit-no-island"));
             				return true;
             			}
             		} else {
-            			sender.sendMessage(ChatColor.RED + "Usage: /island visit [player]");
+            			sender.sendMessage(ChatColor.RED + getLanguage("visit-usage"));
             			return true;
             		}
             	} else if (args[0].equalsIgnoreCase("settings")) {
@@ -461,70 +488,70 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            			if (playerIsland.visitorsCanPortal()) {
 			            				visitorsCanPortal = ChatColor.GREEN;
 			            			}
-			            			sender.sendMessage("Island Settings: " + allowVisitors + "allow-visitors" + ChatColor.RESET + ", " + visitorsCanRideMobs + "visitors-can-ride-mobs" + ChatColor.RESET + ", " + visitorsCanPortal + "visitors-can-portal");
+			            			sender.sendMessage(getLanguage("settings") + allowVisitors + "allow-visitors" + ChatColor.RESET + ", " + visitorsCanRideMobs + "visitors-can-ride-mobs" + ChatColor.RESET + ", " + visitorsCanPortal + "visitors-can-portal");
 			            			return true;
 			            		} else if (args[1].equalsIgnoreCase("allow-visitors")) {
 			            			if (args.length > 2) {
 			            				if (args[2].equalsIgnoreCase("true")) {
 			            					playerIsland.setAllowsVisitors(true);
-			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'allow-visitors\' was set to true.");
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-true").replace("{setting}", "allow-visitors"));
 			            				} else if (args[2].equalsIgnoreCase("false")) {
 			            					playerIsland.setAllowsVisitors(false);
-			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'allow-visitors\' was set to false.");
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-false").replace("{setting}", "allow-visitors"));
 			            				} else {
-				                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+				                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 			            				}
 			            				return true;
 			            			} else {
-			                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+			                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 			                			return true;
 			            			}
 			            		} else if (args[1].equalsIgnoreCase("visitors-can-ride-mobs")) {
 			            			if (args.length > 2) {
 			            				if (args[2].equalsIgnoreCase("true")) {
 			            					playerIsland.setVisitorsCanRideMobs(true);
-			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'visitors-can-ride-mobs\' was set to true.");
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-true").replace("{setting}", "visitors-can-ride-mobs"));
 			            				} else if (args[2].equalsIgnoreCase("false")) {
 			            					playerIsland.setVisitorsCanRideMobs(false);
-			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'visitors-can-ride-mobs\' was set to false.");
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-false").replace("{setting}", "visitors-can-ride-mobs"));
 			            				} else {
-				                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+				                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 			            				}
 			            				return true;
 			            			} else {
-			                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+			                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 			                			return true;
 			            			}
 			            		} else if (args[1].equalsIgnoreCase("visitors-can-portal")) {
 			            			if (args.length > 2) {
 			            				if (args[2].equalsIgnoreCase("true")) {
 			            					playerIsland.setVisitorsCanPortal(true);
-			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'visitors-can-portal\' was set to true.");
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-true").replace("{setting}", "visitors-can-portal"));
 			            				} else if (args[2].equalsIgnoreCase("false")) {
 			            					playerIsland.setVisitorsCanPortal(false);
-			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "\'visitors-can-portal\' was set to false.");
+			            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-false").replace("{setting}", "visitors-can-portal"));
 			            				} else {
-				                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+				                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 			            				}
 			            				return true;
 			            			} else {
-			                			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+			                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 			                			return true;
 			            			}
 			            		} else {
-		                			sender.sendMessage(ChatColor.RED + "Setting not found! Type \'/island settings list\' for a list of settings.");
+		                			sender.sendMessage(ChatColor.RED + getLanguage("setting-not-found"));
 		                			return true;
 			            		}
 		            		} else {
-		            			sender.sendMessage(ChatColor.RED + "Usage: /island settings <setting | list> [true | false]");
+		            			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 		            			return true;
 		            		}
 	            		} else {
-	            			sender.sendMessage(ChatColor.RED + "You must be island leader to use this command!");
+	            			sender.sendMessage(ChatColor.RED + getLanguage("leader-only"));
 	            			return true;
 	            		}
             		} else {
-            			sender.sendMessage(ChatColor.RED + "You must have an island to change its settings!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
             		}
             	} else if (args[0].equalsIgnoreCase("invite")) {
@@ -536,31 +563,31 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            				if (getIslandInvite(playerIsland, r) == null) {
 				            			Island rIsland = getPlayerIsland(r);
 				            			if (rIsland != playerIsland) {
-				            				sender.sendMessage(ChatColor.GREEN + "You have successfully invited " + r.getName() + " to join your island.");
+				            				sender.sendMessage(ChatColor.GREEN + getLanguage("invite-success").replace("{player}", r.getName()));
 				            				islandInvites.add(new IslandInvite(r, playerIsland, this));
 				            				return true;
 			            				} else {
-			            					p.sendMessage(ChatColor.RED + "This player is already a member of your island!");
+			            					p.sendMessage(ChatColor.RED + getLanguage("invite-already-member"));
 			            					return true;
 			            				}
 		            				} else {
-			                			sender.sendMessage(ChatColor.RED + "You have already sent this player an invite!");
+			                			sender.sendMessage(ChatColor.RED + getLanguage("invite-already-invited"));
 			                			return true;
 		            				}
 		            			} else {
-		                			sender.sendMessage(ChatColor.RED + "Player must be online to receive invite!");
+		                			sender.sendMessage(ChatColor.RED + getLanguage("invite-not-online"));
 		                			return true;
 		            			}
 		            		} else {
-		            			sender.sendMessage(ChatColor.RED + "Usage: /island invite <player>");
+		            			sender.sendMessage(ChatColor.RED + getLanguage("invite-usage"));
 		            			return true;
 		            		}
 	            		} else {
-	            			sender.sendMessage(ChatColor.RED + "You must be island leader to use this command!");
+	            			sender.sendMessage(ChatColor.RED + getLanguage("leader-only"));
 	            			return true;
 	            		}
             		} else {
-            			sender.sendMessage(ChatColor.RED + "You must have an island to invite people to it!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
             		}
         	    } else if (args[0].equalsIgnoreCase("join")) {
@@ -573,7 +600,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            				SkyblockPlayer sj = getSkyblockPlayer(j);
 	            				if (ii != null && ii.isActive()) {
 	            					if (playerIsland != null) {
-	            						playerIsland.messageAllMembers(ChatColor.GREEN + p.getName() + " has left your island.", p);
+	            						playerIsland.messageAllMembers(ChatColor.GREEN + getLanguage("leave").replace("{player}", p.getName()), p);
 		    	        				playerIsland.leaveIsland(p);
 	            					}
 	            					ii.setActive(false);
@@ -593,41 +620,41 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    				    	    sp.setSkySpawn(sj.getHome());
 	                    			toJoin.addPlayer(p);
 	                    			sp.setIsland(toJoin);
-	                    			toJoin.messageAllMembers(ChatColor.GREEN + p.getName() + " has joined your island.", p);
-	                    			p.sendMessage(ChatColor.GREEN + "You have successfully joined " + j.getName() + "\'s island.");
+	                    			toJoin.messageAllMembers(ChatColor.GREEN + getLanguage("joined").replace("{player}", p.getName()), p);
+	                    			p.sendMessage(ChatColor.GREEN + getLanguage("i-joined").replace("{player}", j.getName()));
 	                    			
 	    				            return true;
 	            				} else {
-	                    			sender.sendMessage(ChatColor.RED + "You have not been invited by that player! Ask them to send another invite.");
+	                    			sender.sendMessage(ChatColor.RED + getLanguage("not-invited"));
 	                    			return true;
 	            				}
 	            			} else {
-	                			sender.sendMessage(ChatColor.RED + "Player must be online to join their island!");
+	                			sender.sendMessage(ChatColor.RED + getLanguage("join-not-online"));
 	                			return true;
 	            			}
             			} else {
-                			sender.sendMessage(ChatColor.RED + "You can\'t be an island leader and join another island! Use \"/island makeleader <player>\" to transfer leadership.");
+                			sender.sendMessage(ChatColor.RED + getLanguage("join-leader"));
                 			return true;
             			}
         	    	} else {
-            			sender.sendMessage(ChatColor.RED + "Usage: /island join <player>");
+            			sender.sendMessage(ChatColor.RED + getLanguage("join-usage"));
             			return true;
         	    	}
         		} else if (args[0].equalsIgnoreCase("leave")) {
         			if (playerIsland != null) {
 	        			if (!playerIsland.getLeader().toString().equalsIgnoreCase(p.getUniqueId().toString())) {
-	        				playerIsland.messageAllMembers(ChatColor.GREEN + p.getName() + " has left your island.", p);
+	        				playerIsland.messageAllMembers(ChatColor.GREEN + getLanguage("leave").replace("{player}", p.getName()), p);
 	        				playerIsland.leaveIsland(p);
 	        				sp.setHome(null);
 	        				sp.setIsland(null);
-	            			sender.sendMessage(ChatColor.GREEN + "You have successfully left your island.");
+	            			sender.sendMessage(ChatColor.GREEN + getLanguage("leave-success"));
 	        				return true;
 	        			} else {
-	            			sender.sendMessage(ChatColor.RED + "You cannot leave while you are island leader!");
+	            			sender.sendMessage(ChatColor.RED + getLanguage("leave-leader"));
 	            			return true;
 	        			}
         			} else {
-            			sender.sendMessage(ChatColor.RED + "You must be a member of an island to leave it!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
         			}
         		} else if (args[0].equalsIgnoreCase("kick")) {
@@ -647,7 +674,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             						pUUID = k.getUniqueId();
             						kName = k.getName();
                 					if (k.getUniqueId() == p.getUniqueId()) {
-                						sender.sendMessage(ChatColor.RED + "You can\'t kick yourself!");
+                						sender.sendMessage(ChatColor.RED + getLanguage("kick-yourself"));
                 						return true;
                 					}
                 					ps = getSkyblockPlayer(k);
@@ -656,26 +683,26 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         							ps.setHome(null);
         							ps.setIsland(null);
         							playerIsland.leaveIsland(pUUID);
-            		        		sender.sendMessage(ChatColor.GREEN + kName+ " has been kicked from your island.");
+            		        		sender.sendMessage(ChatColor.GREEN + getLanguage("kick").replace("{player}", kName));
             		        		if (k != null) {
-            		        			k.sendMessage(ChatColor.RED + "You have been kicked from your island.");
+            		        			k.sendMessage(ChatColor.RED + getLanguage("kicked"));
             		        		}
-            		        		playerIsland.messageAllMembers(ChatColor.GREEN + kName + " has left your island.", p);
+            		        		playerIsland.messageAllMembers(ChatColor.GREEN + getLanguage("leave").replace("{player}", kName), p);
             		        		return true;
         						} else {
-                					sender.sendMessage(ChatColor.RED + "This user is not a member of your island!");
+                					sender.sendMessage(ChatColor.RED + getLanguage("kick-not-member"));
                 					return true;
         						}
             				} else {
-            					sender.sendMessage(ChatColor.RED + "Usage: /island kick <player>");
+            					sender.sendMessage(ChatColor.RED + getLanguage("kick-usage"));
             					return true;
             				}
             			} else {
-                			sender.sendMessage(ChatColor.RED + "You must be the island leader to kick someone!");
+                			sender.sendMessage(ChatColor.RED + getLanguage("leader-only"));
                 			return true;
             			}
             		} else {
-            			sender.sendMessage(ChatColor.RED + "You must be a member of an island to kick someone!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
             		}
         		} else if (args[0].equalsIgnoreCase("list")) {
@@ -691,8 +718,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     						leaderName = op.getName();
     						leaderColor = ChatColor.RED;
         				}
-        				sender.sendMessage(ChatColor.AQUA + "Island Members" + ChatColor.GRAY + ":");
-        				sender.sendMessage(ChatColor.DARK_GRAY + "- " + ChatColor.GOLD + "[LEADER] " + leaderColor + leaderName);
+        				sender.sendMessage(ChatColor.AQUA + getLanguage("island-members") + ChatColor.GRAY + ":");
+        				sender.sendMessage(ChatColor.DARK_GRAY + "- " + ChatColor.GOLD + getLanguage("island-leader") + " " + leaderColor + leaderName);
         				for (int i = 0; i < playerIsland.getMembers().size(); i++) {
         					if (playerIsland.getMembers().get(i) != null) {
         						UUID tempUUID = playerIsland.getMembers().get(i);
@@ -707,7 +734,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         				}
         				return true;
         			} else {
-            			sender.sendMessage(ChatColor.RED + "You must be a member of an island to see the members of it!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
         			}
             	} else if (args[0].equalsIgnoreCase("makeleader")) {
@@ -719,31 +746,31 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             						if (l.getUniqueId() != p.getUniqueId()) {
 	        							if (playerIsland.hasPlayer(l.getUniqueId())) {
 		        							playerIsland.makeLeader(l);
-		        							sender.sendMessage(ChatColor.GREEN + l.getName() + " has been made the new island leader.");
-		        							l.sendMessage(ChatColor.GREEN + "You have been made the new island leader.");
+		        							sender.sendMessage(ChatColor.GREEN + getLanguage("promoted").replace("{player}", l.getName()));
+		        							l.sendMessage(ChatColor.GREEN + getLanguage("promoted-you"));
 		        							return true;
 	        							} else {
-	                            			sender.sendMessage(ChatColor.RED + "The player must be a member of your island to become leader of it!");
+	                            			sender.sendMessage(ChatColor.RED + getLanguage("promoted-not-member"));
 	                            			return true;
 	        							}
             						} else {
-            							sender.sendMessage(ChatColor.RED + "You are already the leader of your island!");
+            							sender.sendMessage(ChatColor.RED + getLanguage("promoted-already-leader"));
             							return true;
             						}
         						} else {
-                        			sender.sendMessage(ChatColor.RED + "The player must be online to become leader!");
+                        			sender.sendMessage(ChatColor.RED + getLanguage("promoted-not-online"));
                         			return true;
         						}
         					} else {
-                    			sender.sendMessage(ChatColor.RED + "Usage: /island makeleader <player>");
+                    			sender.sendMessage(ChatColor.RED + getLanguage("promoted-usage"));
                     			return true;
         					}
         				} else {
-                			sender.sendMessage(ChatColor.RED + "You must be the island leader to confer leadership!");
+                			sender.sendMessage(ChatColor.RED + getLanguage("leader-only"));
                 			return true;
         				}
         			} else {
-            			sender.sendMessage(ChatColor.RED + "You must have an island to make someone the leader of it!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
         			}
             	} else if (args[0].equalsIgnoreCase("level")) {
@@ -753,10 +780,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			if (isLevel < 0) {
             				isLevel = 0;
             			}
-            			sender.sendMessage(ChatColor.GREEN + "Your island is level " + isLevel + ".");
+            			sender.sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf(isLevel)));
 	            		return true;
             		} else {
-            			sender.sendMessage(ChatColor.RED + "You must have an island to check the level of it!");
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
             		}
             	} else if (args[0].equalsIgnoreCase("config")) {
@@ -798,8 +825,58 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			sender.sendMessage(ChatColor.RED + "You must be a server operator to use this command.");
             			return true;
             		}
+        		} else if (args[0].equalsIgnoreCase("trust")) {
+        			if (playerIsland != null) {
+        				if (playerIsland.getLeader().toString().equalsIgnoreCase(p.getUniqueId().toString())) {
+        					if (sender.hasPermission("skyblock.trust")) {
+        						if (config.getBoolean("USE_TRUSTS")) {
+		        					if (args.length == 3) {
+		        						if (args[1].equalsIgnoreCase("add")) {
+		        							OfflinePlayer op = getServer().getOfflinePlayer(args[2]);
+		        							if (playerIsland.trustContains(op.getUniqueId())) {
+		        								sender.sendMessage(ChatColor.RED + getLanguage("trust-already-trusted"));
+		        								return true;
+		        							} else {
+			        							playerIsland.trustPlayer(op.getUniqueId());
+			        							sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("trust-added"));
+			        							return true;
+		        							}
+		        						} else if (args[1].equalsIgnoreCase("remove")) {
+		        							OfflinePlayer op = getServer().getOfflinePlayer(args[2]);
+		        							if (playerIsland.trustContains(op.getUniqueId())) {
+		            							playerIsland.removeTrust(op.getUniqueId());
+			        							sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("trust-removed"));
+		            							return true;
+		        							} else {
+		        								sender.sendMessage(ChatColor.RED + getLanguage("trust-not-trusted"));
+		        								return true;
+		        							}
+		        						} else {
+		                        			sender.sendMessage(ChatColor.RED + getLanguage("trust-usage"));
+		                        			return true;
+		        						}
+		        					} else {
+		                    			sender.sendMessage(ChatColor.RED + getLanguage("trust-usage"));
+		                    			return true;
+		        					}
+	        					} else {
+	                    			sender.sendMessage(ChatColor.RED + getLanguage("trust-disabled"));
+	                    			return true;
+	        					}
+        					} else {
+                    			sender.sendMessage(ChatColor.RED + getLanguage("no-permission"));
+                    			return true;
+        					}
+        				} else {
+                			sender.sendMessage(ChatColor.RED + getLanguage("leader-only"));
+                			return true;
+        				}
+        			} else {
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
+            			return true;
+        			}
         		} else {
-            		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Unknown command. Type \'/is help\' for a list of commands.");
+            		sender.sendMessage(getLanguage("unknown-command"));
             		return true;
             	}
         	} else {
@@ -812,12 +889,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         			if (args.length == 0) {
         				Player p = (Player) sender;
 		        		DecimalFormat dec = new DecimalFormat("#0.00");
-						sender.sendMessage("Balance: " + ChatColor.GREEN + "$" + dec.format(vaultEconomy.getBalance(p)));
+						sender.sendMessage(getLanguage("balance").replace("{money}", dec.format(vaultEconomy.getBalance(p))));
 		        		return true;
         			} else {
         				OfflinePlayer op = getServer().getOfflinePlayer(args[0]);
 		        		DecimalFormat dec = new DecimalFormat("#0.00");
-						sender.sendMessage("Balance of " + op.getName() + ": " + ChatColor.GREEN + "$" + dec.format(vaultEconomy.getBalance(op)));
+						sender.sendMessage(getLanguage("balance-other").replace("{player}", op.getName()).replace("{money}",dec.format(vaultEconomy.getBalance(op))));
 		        		return true;
         			}
         		} else {
@@ -830,7 +907,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		        		Player p = (Player) sender;
 		        		Economy econ = new Economy(p.getUniqueId(), data);
 		        		DecimalFormat dec = new DecimalFormat("#0.00");
-						sender.sendMessage("Balance: " + ChatColor.GREEN + "$" + dec.format(econ.get()));
+						sender.sendMessage(getLanguage("balance").replace("{money}", dec.format(econ.get())));
 		        		return true;
 	        		} else {
 	        			Player p = getServer().getPlayer(args[0]);
@@ -845,7 +922,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        				pName = op.getName();
 	        			}
 		        		DecimalFormat dec = new DecimalFormat("#0.00");
-						sender.sendMessage("Balance of " + pName + ": " + ChatColor.GREEN + "$" + dec.format(econ.get()));
+						sender.sendMessage(getLanguage("balance-other").replace("{player}", pName).replace("{money}", dec.format(econ.get())));
 	        			return true;
 	        		}
 	        	} else {
@@ -853,7 +930,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        		return true;
 	        	}
         	} else {
-        		sender.sendMessage(ChatColor.RED + "Skyblock Economy is disabled!");
+        		sender.sendMessage(ChatColor.RED + getLanguage("economy-disabled"));
         		return true;
         	}
         } else if (command.getName().equalsIgnoreCase("pay")) {
@@ -867,26 +944,29 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        			    try {
 	            				payAmount = Double.valueOf(args[1]);
 	        			    } catch (NumberFormatException | NullPointerException nfe) {
-	        					sender.sendMessage(ChatColor.RED + "That\'s not a valid amount of money!");
+	        					sender.sendMessage(ChatColor.RED + getLanguage("money-not-valid"));
 	        			        return true;
 	        			    }
 	        			    if (vaultEconomy.getBalance(p) >= payAmount && payAmount > 0) {
 	        			    	vaultEconomy.withdrawPlayer(p, payAmount);
 	        			    	vaultEconomy.depositPlayer(r, payAmount);
 	        	        		DecimalFormat dec = new DecimalFormat("#0.00");
-	        					sender.sendMessage(ChatColor.GREEN + "Sent $" + dec.format(payAmount) + " to " + r.getName() + " successfully.");
-	        					r.sendMessage(ChatColor.GREEN + "Received $" + dec.format(payAmount) + " from " + p.getName() + ".");
+	        					sender.sendMessage(ChatColor.GREEN + getLanguage("pay-send").replace("{money}", dec.format(payAmount)).replace("{player}", r.getName()));
+	        					r.sendMessage(ChatColor.GREEN + getLanguage("pay-receive").replace("{money}", dec.format(payAmount)).replace("{player}", p.getName()));
+	        					return true;
+	        			    } else if (payAmount <= 0) {
+	        					sender.sendMessage(ChatColor.RED + getLanguage("money-not-valid"));
 	        					return true;
 	        			    } else {
-	        					sender.sendMessage(ChatColor.RED + "You don\'t have enough money!");
+	        					sender.sendMessage(ChatColor.RED + getLanguage("not-enough-money"));
 	        					return true;
 	        			    }
         				} else {
-	        				sender.sendMessage(ChatColor.RED + "The receiver must be online to receive money!");
+	        				sender.sendMessage(ChatColor.RED + getLanguage("receiver-offline"));
 	        				return true;
 	        			}
         			} else {
-            			sender.sendMessage(ChatColor.RED + "Usage: /pay <player> <amount>");
+            			sender.sendMessage(ChatColor.RED + getLanguage("pay-usage"));
             			return true;
             		}
 	        	} else {
@@ -903,7 +983,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        			    try {
 	            				payAmount = Double.valueOf(args[1]);
 	        			    } catch (NumberFormatException | NullPointerException nfe) {
-	        					sender.sendMessage(ChatColor.RED + "That\'s not a valid amount of money!");
+	        					sender.sendMessage(ChatColor.RED + getLanguage("money-not-valid"));
 	        			        return true;
 	        			    }
 	        			    Economy pecon = new Economy(p.getUniqueId(), data);
@@ -912,25 +992,25 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        					Economy recon = new Economy(r.getUniqueId(), data);
 	        					recon.deposit(payAmount);
 	        	        		DecimalFormat dec = new DecimalFormat("#0.00");
-	        					sender.sendMessage(ChatColor.GREEN + "Sent $" + dec.format(payAmount) + " to " + r.getName() + " successfully.");
-	        					r.sendMessage(ChatColor.GREEN + "Received $" + dec.format(payAmount) + " from " + p.getName() + ".");
+	        					sender.sendMessage(ChatColor.GREEN + getLanguage("pay-send").replace("{money}", dec.format(payAmount)).replace("{player}", r.getName()));
+	        					r.sendMessage(ChatColor.GREEN + getLanguage("pay-receive").replace("{money}", dec.format(payAmount)).replace("{player}", p.getName()));
 	        					if (r.getName() == sender.getName()) {
 	        						sender.sendMessage(ChatColor.LIGHT_PURPLE + "Congratulations, you payed yourself.");
 	        					}
 	        					return true;
 	        				} else if (payAmount <= 0) {
-	        					sender.sendMessage(ChatColor.RED + "That\'s not a valid amount of money!");
+	        					sender.sendMessage(ChatColor.RED + getLanguage("money-not-valid"));
 	        					return true;
 	        				} else {
-	        					sender.sendMessage(ChatColor.RED + "You don\'t have enough money!");
+	        					sender.sendMessage(ChatColor.RED + getLanguage("not-enough-money"));
 	        					return true;
 	        				}
 	        			} else {
-	        				sender.sendMessage(ChatColor.RED + "The receiver must be online to receive money!");
+	        				sender.sendMessage(ChatColor.RED + getLanguage("receiver-offline"));
 	        				return true;
 	        			}
 	        		} else {
-	        			sender.sendMessage(ChatColor.RED + "Usage: /pay <player> <amount>");
+	        			sender.sendMessage(ChatColor.RED + getLanguage("pay-usage"));
 	        			return true;
 	        		}
 	        	} else {
@@ -938,7 +1018,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        		return true;
 	        	}
         	} else {
-        		sender.sendMessage(ChatColor.RED + "Skyblock Economy is disabled!");
+        		sender.sendMessage(ChatColor.RED + getLanguage("economy-disabled"));
         		return true;
         	}
         } else if (command.getName().equalsIgnoreCase("fly")) {
@@ -946,9 +1026,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		Player p = (Player) sender;
         		p.setAllowFlight(!p.getAllowFlight());
         		if (p.getAllowFlight()) {
-        			sender.sendMessage(ChatColor.GREEN + "Flying has been enabled.");
+        			sender.sendMessage(ChatColor.GREEN + getLanguage("fly-enable"));
         		} else {
-        			sender.sendMessage(ChatColor.GREEN + "Flying has been disabled.");
+        			sender.sendMessage(ChatColor.GREEN + getLanguage("fly-disable"));
         		}
         		return true;
         	} else {
@@ -968,11 +1048,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        		getLogger().info("[World] " + sender.getName() + ": " + m);
 	        		return true;
 	        	} else {
-	        		sender.sendMessage(ChatColor.RED + "Usage: /shout <message>");
+	        		sender.sendMessage(ChatColor.RED + getLanguage("shout-usage"));
 	        		return true;
 	        	}
         	} else {
-        		sender.sendMessage(ChatColor.RED + "Chatrooms are disabled.");
+        		sender.sendMessage(ChatColor.RED + getLanguage("chatrooms-disabled"));
         		return true;
         	}
         } else if (command.getName().equalsIgnoreCase("trade")) {
@@ -1001,18 +1081,18 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			        					trec.close();
 			        					return true;
 		        					} else {
-			        					sender.sendMessage(ChatColor.RED + "You aren't close enough to trade!");
+			        					sender.sendMessage(ChatColor.RED + getLanguage("trade-not-close"));
 			        					return true;
 		        					}
 		        				} else if (t == p) {
-		        					sender.sendMessage(ChatColor.RED + "You can't trade with yourself!");
+		        					sender.sendMessage(ChatColor.RED + getLanguage("trade-yourself"));
 		        					return true;
 		        				} else {
-		        					sender.sendMessage(ChatColor.RED + "This player is no longer online.");
+		        					sender.sendMessage(ChatColor.RED + getLanguage("trade-not-online"));
 		        					return true;
 		        				}
 		        			} else {
-		        				sender.sendMessage(ChatColor.RED + "You don't have any trade requests.");
+		        				sender.sendMessage(ChatColor.RED + getLanguage("trade-no-requests"));
 		        				return true;
 		        			}
 		        		} else {
@@ -1024,23 +1104,23 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				        				tradingRequests.add(treq);
 				        				return true;
 	        						} else {
-	        							sender.sendMessage(ChatColor.RED + "You have already requested to trade with this player!");
+	        							sender.sendMessage(ChatColor.RED + getLanguage("trade-already-requested"));
 	        							return true;
 	        						}
 	        					} else {
-		        					sender.sendMessage(ChatColor.RED + "You aren't close enough to trade!");
+		        					sender.sendMessage(ChatColor.RED + getLanguage("trade-not-close"));
 		        					return true;
 	        					}
 		        			} else if (t == p) {
-	        					sender.sendMessage(ChatColor.RED + "You can't trade with yourself!");
+	        					sender.sendMessage(ChatColor.RED + getLanguage("trade-yourself"));
 	        					return true;
 		        			} else {
-		        				sender.sendMessage(ChatColor.RED + "The player must be online to trade!");
+		        				sender.sendMessage(ChatColor.RED + getLanguage("trade-not-online"));
 		        				return true;
 		        			}
 		        		}
 		        	} else {
-		        		sender.sendMessage(ChatColor.RED + "Usage: /trade <player>");
+		        		sender.sendMessage(ChatColor.RED + getLanguage("trade-usage"));
 		        		return true;
 		        	}
 	        	} else {
@@ -1048,7 +1128,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        		return true;
 	        	}
         	} else {
-        		sender.sendMessage(ChatColor.RED + "Skyblock Economy is disabled!");
+        		sender.sendMessage(ChatColor.RED + getLanguage("economy-disabled"));
         		return true;
         	}
         } else if (command.getName().equalsIgnoreCase("spawn")) {
@@ -1056,7 +1136,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		Player p = (Player) sender;
         		World sw = getServer().getWorlds().get(0);
         		p.teleport(sw.getSpawnLocation());
-        		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + "Teleporting you to spawn...");
+        		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("spawn"));
         		return true;
         	} else {
         		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
@@ -1080,6 +1160,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    		} else {
 	    			e.setCancelled(true);
 	    		}
+    			SkyblockPlayer sp = getSkyblockPlayer(p);
+	    		if (sp.getVisiting() != null) {
+	    			if (sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
+	    				e.setCancelled(false);
+	    				playerIsland = sp.getVisiting().getIsland();
+	    			}
+    			}
     		}
     		if (!e.isCancelled() && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
     			if (playerIsland != null) {
@@ -1119,6 +1206,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    		} else {
 	    			e.setCancelled(true);
 	    		}
+    			SkyblockPlayer sp = getSkyblockPlayer(p);
+	    		if (sp.getVisiting() != null) {
+	    			if (sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
+	    				e.setCancelled(false);
+	    				playerIsland = sp.getVisiting().getIsland();
+	    			}
+    			}
     		}
     		if (!e.isCancelled() && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
     			if (playerIsland != null) {
@@ -1158,6 +1252,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    		} else {
 	    			e.setCancelled(true);
 	    		}
+    			SkyblockPlayer sp = getSkyblockPlayer(p);
+	    		if (sp.getVisiting() != null) {
+	    			if (sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
+	    				e.setCancelled(false);
+	    				playerIsland = sp.getVisiting().getIsland();
+	    			}
+    			}
     		}
     	}
     	if (!e.isCancelled() && config.getBoolean("BONEMEAL_DOES_MORE") && config.getBoolean("USE_CUSTOM_MECHANICS") && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
@@ -1268,7 +1369,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            	Player p = (Player)edbeEvent.getDamager();
 	            	Island playerIsland = getPlayerIsland(p);
 	            	if (p != null) {
-		            	if ((playerIsland == null || !(playerIsland.inBounds(e.getEntity().getLocation()))) && !(edbeEvent.getDamager().isOp())) {
+	            		SkyblockPlayer sp = getSkyblockPlayer(p);
+		            	if ((playerIsland == null || !(playerIsland.inBounds(e.getEntity().getLocation()))) && !(edbeEvent.getDamager().isOp()) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 		            		// make it so people cant hurt mobs on other people's islands
 		            		e.setCancelled(true);
 		            	} else {
@@ -1300,16 +1402,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            			}
 			            			if (getMoney != 0) {
 			            				if (usingVault) {
-			            					vaultEconomy.depositPlayer(p, getMoney);
+			            					if (getMoney > 0) {
+			            						vaultEconomy.depositPlayer(p, getMoney);
+			            					} else {
+			            						vaultEconomy.withdrawPlayer(p, -1*getMoney);
+			            					}
 			            				} else {
 				            				Economy econ = new Economy(p.getUniqueId(), data);
 				            				econ.deposit(getMoney);
 			            				}
 				            			DecimalFormat dec = new DecimalFormat("#0.00");
 				            			if (getMoney > 0) {
-				            				p.sendMessage(ChatColor.GREEN + "You earned $" + dec.format(getMoney) + " for killing a " + e.getEntity().getType().getName().replace("_", " ") + ".");
+				            				p.sendMessage(ChatColor.GREEN + getLanguage("kill-get").replace("{money}", dec.format(getMoney)).replace("{mob}", e.getEntity().getType().getName().replace("_", " ")));
 				            			} else {
-				            				p.sendMessage(ChatColor.RED + "You lost $" + dec.format(getMoney) + " for killing a " + e.getEntity().getType().getName().replace("_", " ") + ".");
+				            				p.sendMessage(ChatColor.RED + getLanguage("kill-lose").replace("{money}", dec.format(getMoney)).replace("{mob}", e.getEntity().getType().getName().replace("_", " ")));
 				            			}
 			            			}
 			            			Entity ent = e.getEntity();
@@ -1325,12 +1431,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            }
 	        }
     	}
-    	if (e.getEntity() instanceof Player) {
+    	if (e.getEntity() instanceof Player && (e.getEntity().getWorld() == skyWorld || e.getEntity().getWorld() == skyNether)) {
     		Player p = (Player) e.getEntity();
         	Island playerIsland = getPlayerIsland(p);
-        	if ((playerIsland == null || !(playerIsland.inBounds(e.getEntity().getLocation()))) && !(p.hasPermission("skyblock.admin"))) {
-        		// make it so people are invincible on other people's islands
-        		e.setCancelled(true);
+        	SkyblockPlayer sp = getSkyblockPlayer(p);
+        	if ((playerIsland == null || !(playerIsland.inBounds(e.getEntity().getLocation()))) && !(p.hasPermission("skyblock.admin"))&& !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+        		if (e.getCause() != DamageCause.VOID) {
+        			// make it so people are invincible on other people's islands
+        			e.setCancelled(true);
+        		}
         	}
     	}
     }
@@ -1358,7 +1467,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		}
     		sp = getSkyblockPlayer(p);
     		if (config.getBoolean("DISABLE_PLAYER_COLLISIONS") && (getServer().getVersion().contains("1.12") || getServer().getVersion().contains("1.13") || getServer().getVersion().contains("1.14") || getServer().getVersion().contains("1.15"))) {
-    			noCollideAddPlayer(p);
+    			if (p.getWorld() == skyWorld || p.getWorld() == skyNether) {
+    				noCollideAddPlayer(p);
+    			} else {
+    				noCollideRemovePlayer(p);
+    			}
     		}
     		if (toClear.contains(p.getUniqueId().toString())) {
     			PlayerInventory inv = p.getInventory();
@@ -1459,6 +1572,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	Island playerIsland = getPlayerIsland(p);
     	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
     		e.setCancelled(true);
+			SkyblockPlayer sp = getSkyblockPlayer(p);
+    		if (sp.getVisiting() != null) {
+    			if (sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
+    				e.setCancelled(false);
+    				playerIsland = sp.getVisiting().getIsland();
+    			}
+			}
     	}
     }
     
@@ -1468,6 +1588,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	Island playerIsland = getPlayerIsland(p);
     	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
     		e.setCancelled(true);
+			SkyblockPlayer sp = getSkyblockPlayer(p);
+    		if (sp.getVisiting() != null) {
+    			if (sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
+    				e.setCancelled(false);
+    				playerIsland = sp.getVisiting().getIsland();
+    			}
+			}
     	}
     }
 	
@@ -1493,18 +1620,32 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			p.setFoodLevel(20);
 			p.setFallDistance(0);
 			if (config.getBoolean("USE_ECONOMY")) {
-				if (sp.getIsland() != null && sp.getIsland().inBounds(p.getLocation())) {
-					if (usingVault) {
-						Double loss = vaultEconomy.getBalance(p) / 2;
-			    		DecimalFormat dec = new DecimalFormat("#0.00");
-						p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
-						vaultEconomy.withdrawPlayer(p, loss);
+				if ((sp.getIsland() != null && sp.getIsland().inBounds(p.getLocation())) || (sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+					if (config.isString("LOSS_ON_DEATH")) {
+						if (usingVault) {
+							Double loss = vaultEconomy.getBalance(p) / 2;
+				    		DecimalFormat dec = new DecimalFormat("#0.00");
+							p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+							vaultEconomy.withdrawPlayer(p, loss);
+						} else {
+							Economy econ = new Economy(p.getUniqueId(), data);
+							Double loss = econ.get() / 2;
+				    		DecimalFormat dec = new DecimalFormat("#0.00");
+							p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+							econ.set(loss);
+						}
 					} else {
-						Economy econ = new Economy(p.getUniqueId(), data);
-						Double loss = econ.get() / 2;
-			    		DecimalFormat dec = new DecimalFormat("#0.00");
-						p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
-						econ.set(loss);
+						Double loss = config.getDouble("LOSS_ON_DEATH");
+						if (usingVault) {
+				    		DecimalFormat dec = new DecimalFormat("#0.00");
+							p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+							vaultEconomy.withdrawPlayer(p, loss);
+						} else {
+							Economy econ = new Economy(p.getUniqueId(), data);
+				    		DecimalFormat dec = new DecimalFormat("#0.00");
+							p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+							econ.withdraw(loss);
+						}
 					}
 				}
 			}
@@ -1526,17 +1667,41 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				p.setBedSpawnLocation(sp.skySpawn(), true);
 			}
 			if (config.getBoolean("USE_ECONOMY")) {
-				if (usingVault) {
-					Double loss = vaultEconomy.getBalance(p) / 2;
-		    		DecimalFormat dec = new DecimalFormat("#0.00");
-					p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
-					vaultEconomy.withdrawPlayer(p, loss);
+				Boolean runloss = false;
+				if (p.getWorld() == skyWorld || p.getWorld() == skyNether) {
+					if ((sp.getIsland() != null && sp.getIsland().inBounds(p.getLocation())) || (sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+						runloss = true;
+					}
 				} else {
-					Economy econ = new Economy(p.getUniqueId(), data);
-					Double loss = econ.get() / 2;
-		    		DecimalFormat dec = new DecimalFormat("#0.00");
-					p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
-					econ.set(loss);
+					runloss = true;
+				}
+				if (runloss) {
+					if (config.isString("LOSS_ON_DEATH")) {
+						if (usingVault) {
+							Double loss = vaultEconomy.getBalance(p) / 2;
+				    		DecimalFormat dec = new DecimalFormat("#0.00");
+							p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+							vaultEconomy.withdrawPlayer(p, loss);
+						} else {
+							Economy econ = new Economy(p.getUniqueId(), data);
+							Double loss = econ.get() / 2;
+				    		DecimalFormat dec = new DecimalFormat("#0.00");
+							p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+							econ.set(loss);
+						}
+					} else {
+						Double loss = config.getDouble("LOSS_ON_DEATH");
+						if (usingVault) {
+				    		DecimalFormat dec = new DecimalFormat("#0.00");
+							p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+							vaultEconomy.withdrawPlayer(p, loss);
+						} else {
+							Economy econ = new Economy(p.getUniqueId(), data);
+				    		DecimalFormat dec = new DecimalFormat("#0.00");
+							p.sendMessage(ChatColor.RED + "You died and lost $" + dec.format(loss));
+							econ.withdraw(loss);
+						}
+					}
 				}
 			}
 		}
@@ -1558,7 +1723,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
 	    	Island playerIsland = getPlayerIsland(p);
-	    	if ((p.getLocation().getWorld() == skyWorld) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+	    	SkyblockPlayer sp = getSkyblockPlayer(p);
+	    	if ((p.getLocation().getWorld() == skyWorld) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 	    		e.setCancelled(true);
 	    	}
 			
@@ -1593,7 +1759,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
 	    	Island playerIsland = getPlayerIsland(p);
-	    	if ((p.getLocation().getWorld() == skyWorld) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+	    	SkyblockPlayer sp = getSkyblockPlayer(p);
+	    	if ((p.getLocation().getWorld() == skyWorld) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 	    		e.setCancelled(true);
 	    	}
 			
@@ -1606,7 +1773,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
 	    	SkyblockPlayer sp = getSkyblockPlayer(p);
-	    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+	    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().visitorsCanRideMobs()) {
 	    			e.setCancelled(true);
 	    		}
@@ -1663,10 +1830,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	}
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
+		Player p = e.getPlayer();
 		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
-			Player p = e.getPlayer();
 			SkyblockPlayer sp = getSkyblockPlayer(p);
-			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().visitorsCanPortal()) {
 	    			e.setCancelled(true);
 	    		}
@@ -1691,17 +1858,29 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				e.setTo(newTo);
 			}
 		}
+		if (config.getBoolean("DISABLE_PLAYER_COLLISIONS") && (getServer().getVersion().contains("1.12") || getServer().getVersion().contains("1.13") || getServer().getVersion().contains("1.14") || getServer().getVersion().contains("1.15"))) {
+			if (e.getTo().getWorld() == skyWorld || e.getTo().getWorld() == skyNether) {
+				noCollideAddPlayer(p);
+			} else {
+				noCollideRemovePlayer(p);
+			}
+		}
 	}
 	
 	@EventHandler
 	public void onPlayerPortal(PlayerPortalEvent e) {
 		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
+			Player p = e.getPlayer();
+			SkyblockPlayer sp = getSkyblockPlayer(p);
+			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().visitorsCanPortal()) {
+	    			e.setCancelled(true);
+	    		}
+	    	}
 			Location newTo = e.getPlayer().getLocation();
 			if (newTo.getWorld() == skyWorld) {
 				newTo.setWorld(skyNether);
 				e.setTo(newTo);
-				Player p = e.getPlayer();
-				SkyblockPlayer sp = getSkyblockPlayer(p);
 				if (!sp.getIsland().getNether()) {
 					Location p1 = sp.getIsland().getP1();
 					p1.setWorld(skyNether);
@@ -1748,7 +1927,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    SkyblockPlayer sp = getSkyblockPlayer(p);
 	    sp.setSkySpawn(iss.getPlayerSpawn());
 	    if (playerIsland == null) {
-		    Island newIs = new Island(np1, np2, 100, nextIslandKey, p, skyWorld, data, this);
+		    Island newIs = new Island(np1, np2, 100, nextIslandKey, p, skyWorld, config.getInt("RESET_COUNT"), data, this);
 		    nextIslandKey++;
 		    newIs.setNether(false);
 		    islands.add(newIs);
@@ -1758,6 +1937,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    	playerIsland.setP2(np2);
 	    	playerIsland.setPoints(100);
 	    	playerIsland.setNether(false);
+	    	playerIsland.removeReset();
 	    }
 		sp.setVisiting(null);
 	    sp.setHome(p.getLocation());
@@ -1793,6 +1973,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         team.addEntry(p.getName());
         p.setScoreboard(board);
     }
+	
+	public static void noCollideRemovePlayer(Player p) {
+		p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+	}
     
     @SuppressWarnings("rawtypes")
 	public static int getNotNullLength(List list) {
