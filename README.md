@@ -103,8 +103,8 @@ CHAT_PREFIX: '$7[$bSKYBLOCK$7] $r'
 VOID_INSTANT_DEATH: true
 
 # DISABLE_PLAYER_COLLISIONS toggles player collisions. This
-# is active for the whole server, not just the skyblock
-# world.
+# is active for the skyworld and the nether counterpart
+# only. (a change from previous versions)
 DISABLE_PLAYER_COLLISIONS: true
 
 # USE_CHATROOMS defines whether to use SimpleSkyblock's
@@ -126,6 +126,10 @@ CHAT_WORLDS:
 # island resets are generally limited. An operator can
 # allow an island reset by using /is allowreset <player>
 INFINITE_RESETS: false
+
+# If INFINITE_RESETS is false, RESET_COUNT is how many
+# times the player will be able to reset their island.
+RESET_COUNT: 3
 
 # USE_NETHER determines whether to allow players to have a
 # nether island.
@@ -195,6 +199,12 @@ LEVEL_PTS:
 - REDSTONE_BLOCK:50
 - OBSIDIAN:75
 
+# USE_TRUSTS determines whether islands can "trust"
+# players to break blocks, use chests, kill mobs, etc
+# without actually being a member of the island.
+# Requires special permission "skyblock.trust"
+USE_TRUSTS: false
+
 
 
 # +------------------------------+
@@ -224,6 +234,11 @@ KILL_MONEY:
 - ENDERMAN:10
 - ZOMBIE:2
 - SPIDER:4
+
+# LOSS_ON_DEATH is the amount of money that
+# players lose when they die. It can be 'half' or
+# a number.
+LOSS_ON_DEATH: half
 
 
 
@@ -275,5 +290,5 @@ SOUL_SAND: true
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.3.0
+config-version: 1.3.6
   ```
