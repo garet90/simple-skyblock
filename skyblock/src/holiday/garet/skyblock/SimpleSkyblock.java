@@ -138,10 +138,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		convertConfig("1.2.0","1.2.1");
     	} else if (config.getString("config-version").equalsIgnoreCase("1.2.1")) {
     		convertConfig("1.2.1","1.2.2");
-    	} else if (config.getString("config-version").equalsIgnoreCase("1.2.2") || config.getString("config-version").equalsIgnoreCase("1.3.0")) {
-    		getLogger().warning("Your configuration file is out of date! You may continue to use it, but it may not contain the latest settings.");
-    	} else if (config.getString("config-version").equalsIgnoreCase("1.4.0")) {
+    	} else if (config.getString("config-version").equalsIgnoreCase("1.3.7")) {
     		// config is up to date.
+    	} else {
+    		getLogger().warning("Your configuration file is out of date! You may continue to use it, but it may not contain the latest settings.");
     	}
         this.saveDefaultConfig();
         this.getConfig().options().copyDefaults(true);
@@ -307,7 +307,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             	if (args.length == 0) {
 	        		if (playerIsland == null) {
 			            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("generating-island"));
-			            generateIsland(nextIsland, p, null);
+			            generateIsland(nextIsland, p, null, false);
 			            return true;
 	        		} else {
 	        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("teleporting-to-island"));
@@ -374,41 +374,93 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            		if (playerIsland.getLeader().toString().equalsIgnoreCase(p.getUniqueId().toString())) {
 		            		if (args.length == 2 && args[1].equalsIgnoreCase("confirm")) {
 		            			if (playerIsland.canReset() || config.getBoolean("INFINITE_RESETS")) {
-						            generateIsland(nextIsland, p, playerIsland);
-						            List<UUID> islandMembers = playerIsland.getMembers();
-						            for (int i = 0; i < islandMembers.size(); i++) {
-						            	if (islandMembers.get(i) != null) {
-						            		Player tempP = getServer().getPlayer(islandMembers.get(i));
-						            		SkyblockPlayer tempSP = getSkyblockPlayer(tempP);
-						            		tempSP.setHome(sp.getHome());
+		            				Boolean goAhead = false;
+		            				Double rcost = null;
+		            				if (config.isBoolean("RESET_COST")) {
+		            					goAhead = true;
+		            				} else {
+					            		if (!usingVault) {
+						            		Economy tempEcon = new Economy(p.getUniqueId(), data);
+						            		int resetNumber = config.getInt("RESET_COUNT") - sp.getIsland().getResetsLeft();
+						            		List<Double> resetCost = config.getDoubleList("RESET_COST");
+						            		if (resetNumber >= resetCost.size()) {
+						            			resetNumber = resetCost.size() - 1;
+						            		}
+						            		if (tempEcon.get() >= resetCost.get(resetNumber)) {
+						            			goAhead = true;
+						            			rcost = resetCost.get(resetNumber);
+						            		}
+					            		} else {
+						            		int resetNumber = config.getInt("RESET_COUNT") - sp.getIsland().getResetsLeft();
+						            		List<Double> resetCost = config.getDoubleList("RESET_COST");
+						            		if (resetNumber >= resetCost.size()) {
+						            			resetNumber = resetCost.size() - 1;
+						            		}
+						            		if (vaultEconomy.getBalance(p) >= resetCost.get(resetNumber)) {
+						            			goAhead = true;
+						            			rcost = resetCost.get(resetNumber);
+						            		}
+					            		}
+		            				}
+				            		if (goAhead) {
+				            			if (rcost != null) {
 						            		if (!usingVault) {
-							            		Economy tempEcon = new Economy(islandMembers.get(i), data);
-							            		tempEcon.set(0);
+							            		Economy tempEcon = new Economy(p.getUniqueId(), data);
+							            		tempEcon.withdraw(rcost);
 						            		} else {
-						            			OfflinePlayer op = getServer().getOfflinePlayer(islandMembers.get(i));
-						            			vaultEconomy.withdrawPlayer(op, vaultEconomy.getBalance(op));
+						            			vaultEconomy.withdrawPlayer(p, rcost);
 						            		}
-						            		if (tempP == null) {
-						            			toClear.add(islandMembers.get(i).toString());
-						            		} else {
-						            			PlayerInventory tempInv = tempP.getInventory();
-						            			tempInv.clear();
-						            			tempInv.setArmorContents(new ItemStack[4]);
-						            			tempP.teleport(sp.getHome(), TeleportCause.PLUGIN);
-						            			tempP.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-success"));
-						            		}
-						            	}
-						            }
-						            PlayerInventory inv = p.getInventory();
-						            inv.clear();
-						            inv.setArmorContents(new ItemStack[4]);
-						            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-success"));
-			            			return true;
+				            				generateIsland(nextIsland, p, playerIsland, true);
+				            			} else {
+				            				generateIsland(nextIsland, p, playerIsland, false);
+				            			}
+							            List<UUID> islandMembers = playerIsland.getMembers();
+							            for (int i = 0; i < islandMembers.size(); i++) {
+							            	if (islandMembers.get(i) != null) {
+							            		Player tempP = getServer().getPlayer(islandMembers.get(i));
+							            		SkyblockPlayer tempSP = getSkyblockPlayer(tempP);
+							            		tempSP.setHome(sp.getHome());
+							            		if (!usingVault) {
+								            		Economy tempEcon = new Economy(islandMembers.get(i), data);
+								            		tempEcon.set(0);
+							            		} else {
+							            			OfflinePlayer op = getServer().getOfflinePlayer(islandMembers.get(i));
+							            			vaultEconomy.withdrawPlayer(op, vaultEconomy.getBalance(op));
+							            		}
+							            		if (tempP == null) {
+							            			toClear.add(islandMembers.get(i).toString());
+							            		} else {
+							            			PlayerInventory tempInv = tempP.getInventory();
+							            			tempInv.clear();
+							            			tempInv.setArmorContents(new ItemStack[4]);
+							            			tempP.teleport(sp.getHome(), TeleportCause.PLUGIN);
+							            			tempP.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-success"));
+							            		}
+							            	}
+							            }
+							            PlayerInventory inv = p.getInventory();
+							            inv.clear();
+							            inv.setArmorContents(new ItemStack[4]);
+							            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-success"));
+				            			return true;
+				            		} else {
+			            				sender.sendMessage(ChatColor.RED + getLanguage("reset-not-enough-money"));
+			            				return true;
+				            		}
 		            			} else {
 		            				sender.sendMessage(ChatColor.RED + getLanguage("reset-no-resets"));
 		            				return true;
 		            			}
 		            		} else {
+		            			if (!config.isBoolean("RESET_COST")) {
+				            		int resetNumber = config.getInt("RESET_COUNT") - sp.getIsland().getResetsLeft();
+				            		List<Double> resetCost = config.getDoubleList("RESET_COST");
+				            		if (resetNumber >= resetCost.size()) {
+				            			resetNumber = resetCost.size() - 1;
+				            		}
+					        		DecimalFormat dec = new DecimalFormat("#0.00");
+				            		sender.sendMessage(ChatColor.GREEN + getLanguage("reset-confirm-cost").replace("{money}", String.valueOf(dec.format(resetCost.get(resetNumber)))));
+		            			}
 		            			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-confirm"));
 		            			if (!config.getBoolean("INFINITE_RESETS")) {
 		            				sender.sendMessage(ChatColor.RED + getLanguage("reset-warn").replace("{resets}", String.valueOf(playerIsland.getResetsLeft())));
@@ -1602,6 +1654,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	public void onPlayerMove(PlayerMoveEvent e) {
 		Player p = e.getPlayer();
 		SkyblockPlayer sp = getSkyblockPlayer(p);
+		if (sp != null) {
+			if (sp.getVisiting() != null) {
+				if (!sp.getVisiting().getIsland().inBounds(p.getLocation())) {
+					sp.setVisiting(null);
+				}
+			}
+		}
+		if ((p.getWorld() == skyWorld || p.getWorld() == skyNether) && p.isFlying() && !(p.isOp() || p.hasPermission("skyblock.admin"))) {
+			if (sp.getIsland() != null) {
+				if (!sp.getIsland().inBounds(p.getLocation())) {
+					p.setFlying(false);
+				}
+			}
+		}
 		if (config.getBoolean("VOID_INSTANT_DEATH") && p.getLocation().getY() < -10 && sp != null) {
 			p.sendMessage(ChatColor.RED + "You fell into the void.");
 			if (sp.skySpawn() != null && (p.getWorld() == skyWorld || p.getWorld() == skyNether)) {
@@ -1834,7 +1900,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
 			SkyblockPlayer sp = getSkyblockPlayer(p);
 			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
-	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().visitorsCanPortal()) {
+	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().visitorsCanPortal()) {
 	    			e.setCancelled(true);
 	    		}
 	    	}
@@ -1843,7 +1909,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				newTo.setWorld(skyNether);
 				e.setTo(newTo);
 				if (!sp.getIsland().getNether()) {
-					Location p1 = sp.getIsland().getP1();
+					Location p1 = sp.getIsland().getP1().clone();
 					p1.setWorld(skyNether);
 					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
 					sp.getIsland().setNether(true);
@@ -1873,7 +1939,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			Player p = e.getPlayer();
 			SkyblockPlayer sp = getSkyblockPlayer(p);
 			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
-	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().visitorsCanPortal()) {
+	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().visitorsCanPortal()) {
 	    			e.setCancelled(true);
 	    		}
 	    	}
@@ -1882,7 +1948,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				newTo.setWorld(skyNether);
 				e.setTo(newTo);
 				if (!sp.getIsland().getNether()) {
-					Location p1 = sp.getIsland().getP1();
+					Location p1 = sp.getIsland().getP1().clone();
 					p1.setWorld(skyNether);
 					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
 					sp.getIsland().setNether(true);
@@ -1913,7 +1979,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	data.set("data.toClear", toClear);
     }
 
-	public void generateIsland(Location loc, Player p, Island playerIsland) {
+	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost) {
 		
 		Structure iss = new Structure(loc, defaultStructure, skyWorld, config, getLogger());
 		iss.generate();
@@ -1941,12 +2007,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    }
 		sp.setVisiting(null);
 	    sp.setHome(p.getLocation());
-	    if (usingVault) {
-	    	vaultEconomy.withdrawPlayer(p, vaultEconomy.getBalance(p));
-	    	vaultEconomy.depositPlayer(p, config.getDouble("STARTING_MONEY"));
-	    } else {
-		    Economy econ = new Economy(p.getUniqueId(), data);
-		    econ.set(config.getDouble("STARTING_MONEY"));
+	    if (!overrideCost) {
+		    if (usingVault) {
+		    	vaultEconomy.withdrawPlayer(p, vaultEconomy.getBalance(p));
+		    	vaultEconomy.depositPlayer(p, config.getDouble("STARTING_MONEY"));
+		    } else {
+			    Economy econ = new Economy(p.getUniqueId(), data);
+			    econ.set(config.getDouble("STARTING_MONEY"));
+		    }
 	    }
 	    
 	    // set next island location

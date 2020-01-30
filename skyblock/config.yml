@@ -99,6 +99,17 @@ INFINITE_RESETS: false
 # times the player will be able to reset their island.
 RESET_COUNT: 3
 
+# RESET_COST is the cost of each reset. This can be
+# enabled or set to false. Enabling it would look like
+# the following:
+# RESET_COST:
+# - 30
+# - 40
+# - 50
+# Enabling RESET_COST will allow players to keep money
+# accross resets.
+RESET_COST: false
+
 # USE_NETHER determines whether to allow players to have a
 # nether island.
 USE_NETHER: true
@@ -258,4 +269,4 @@ SOUL_SAND: true
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.3.6
+config-version: 1.3.7
