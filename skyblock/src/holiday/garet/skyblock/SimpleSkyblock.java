@@ -25,8 +25,11 @@
 package holiday.garet.skyblock;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,6 +84,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -94,6 +98,8 @@ import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.entity.EntityMountEvent;
 
+import com.google.common.io.Files;
+
 import holiday.garet.skyblock.economy.Economy;
 import holiday.garet.skyblock.economy.Trade;
 import holiday.garet.skyblock.economy.TradeRequest;
@@ -102,14 +108,16 @@ import holiday.garet.skyblock.island.IslandInvite;
 import holiday.garet.skyblock.island.SkyblockPlayer;
 import holiday.garet.skyblock.world.Generator;
 import holiday.garet.skyblock.world.Structure;
+import holiday.garet.skyblock.world.schematic.SchematicUtils;
 
 @SuppressWarnings("deprecation")
 public class SimpleSkyblock extends JavaPlugin implements Listener {
+	
 	FileConfiguration config = this.getConfig();
 	FileConfiguration data = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "data.yml"));
-	FileConfiguration defaultStructure = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "structures" + File.separator + "default.yml"));
-	FileConfiguration netherStructure = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml"));
 	FileConfiguration language = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "language.yml"));
+	
+	SchematicUtils schematics;
 
 	public static List<SkyblockPlayer> players = new ArrayList<SkyblockPlayer>();
 	public static List<Island> islands = new ArrayList<Island>();
@@ -147,22 +155,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         this.getConfig().options().copyDefaults(true);
         config = this.getConfig();
     	reloadConfig();
-    	if (!defaultStructure.isSet("map")) {
-    		try {
-				defaultStructure = YamlConfiguration.loadConfiguration(new InputStreamReader(this.getResource("default.structure.yml"), "UTF8"));
-				defaultStructure.save(getDataFolder() + File.separator + "structures" + File.separator + "default.yml");
-			} catch (Exception e) {
-				getLogger().warning("Unable to save default island structure!");
-			}
-    	}
-    	if (!netherStructure.isSet("map")) {
-    		try {
-				netherStructure = YamlConfiguration.loadConfiguration(new InputStreamReader(this.getResource("nether.structure.yml"), "UTF8"));
-				netherStructure.save(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml");
-			} catch (Exception e) {
-				getLogger().warning("Unable to save nether island structure!");
-			}
-    	}
     	File langFile = new File(getDataFolder(), "language.yml");
     	if (!langFile.exists()) {
     		try {
@@ -172,6 +164,44 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				getLogger().warning("Unable to save language.yml!");
 			}
     	}
+    	
+    	// check schematic loading
+    	File sc1 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.schematic");
+    	File sc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "nether.schematic");
+    	File scdir = new File(getDataFolder() + File.separator + "structures");
+    	if (!scdir.exists()) {
+    		scdir.mkdir();
+    	}
+    	if (!sc1.exists()) {
+    		try {
+				sc1.createNewFile();
+				OutputStream os1 = new FileOutputStream(sc1);
+				byte[] buffer = new byte[this.getResource("default.schematic").available()];
+				this.getResource("default.schematic").read(buffer);
+				os1.write(buffer);
+				os1.close();
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+    	}
+    	if (!sc2.exists()) {
+    		try {
+				sc2.createNewFile();
+				OutputStream os1 = new FileOutputStream(sc2);
+				byte[] buffer = new byte[this.getResource("nether.schematic").available()];
+				this.getResource("nether.schematic").read(buffer);
+				os1.write(buffer);
+				os1.close();
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+    	}
+    	
+    	schematics = new SchematicUtils(new File(getDataFolder() + File.separator + "structures"));
+    	
+    	
     	final String worldName;
     	if (config.isSet("WORLD")) {
     		worldName = config.getString("WORLD");
@@ -263,6 +293,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	}
     	if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null){
             new SkyPlaceholderExpansion(this).register();
+    	}
+    	
+    	if (schematics.getSchematic("default") == null) {
+    		getLogger().warning("Default schematic could not be loaded!");
+    	}
+    	
+    	if (schematics.getSchematic("nether") == null) {
+    		getLogger().warning("Nether schematic could not be loaded!");
     	}
     }
     
@@ -1964,6 +2002,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			}
 		}
 	}
+	
+	@EventHandler
+	public void onWorldSave(WorldSaveEvent e) {
+		saveData();
+		// save data
+	}
     
     public void saveData() {
 		for (int i = 0; i < islands.size(); i++) {
@@ -1981,7 +2025,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 
 	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost) {
 		
-		Structure iss = new Structure(loc, defaultStructure, skyWorld, config, getLogger());
+		Structure iss = new Structure(loc, schematics.getSchematic("default"), skyWorld, config, getLogger());
 		iss.generate();
 		
 		p.setFallDistance(0);
@@ -2027,7 +2071,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	public void generateNetherIsland(Location loc) {
 		
-		Structure iss = new Structure(loc, netherStructure, skyNether, config, getLogger());
+		Structure iss = new Structure(loc, schematics.getSchematic("nether"), skyNether, config, getLogger());
 		iss.generate();
 		
 	}

@@ -76,6 +76,9 @@ public class Island {
 			canReset = data.getBoolean("data.islands." + islandKey + ".canReset");
 			resetsLeft = data.getInt("data.islands." + islandKey + ".resetsLeft");
 			trusts = data.getStringList("data.islands." + islandKey + ".trusts");
+			if (trusts == null) {
+				trusts = new ArrayList<String>();
+			}
 			if (data.isSet("data.islands." + String.valueOf(islandKey) + ".nether")) {
 				nether = data.getBoolean("data.islands." + String.valueOf(islandKey) + ".nether");
 			} else {

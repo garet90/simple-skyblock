@@ -8,8 +8,8 @@
             <fileset file="plugin.yml"></fileset>
         	<fileset file="config.yml"></fileset>
         	<fileset file="language.yml"></fileset>
-        	<fileset file="default.structure.yml"></fileset>
-        	<fileset file="nether.structure.yml"></fileset>
+        	<fileset file="default.schematic"></fileset>
+        	<fileset file="nether.schematic"></fileset>
         </jar>
     </target>
 </project>
