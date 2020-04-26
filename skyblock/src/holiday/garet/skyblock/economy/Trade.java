@@ -43,6 +43,8 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import holiday.garet.skyblock.XMaterial;
+import holiday.garet.skyblock.event.PlayerTradeAcceptEvent;
+import holiday.garet.skyblock.event.PlayerTradeDenyEvent;
 
 public class Trade implements Listener {
 	
@@ -206,39 +208,44 @@ public class Trade implements Listener {
 	        		if (isActive() && player1Accepted && player2Accepted) {
 	        			e.getInventory().getItem(39).setAmount(3);
 	        			e.getInventory().getItem(41).setAmount(3);
+	        			Trade instance = this;
 	        	        new BukkitRunnable() {
 	        	            
 	        	            @Override
 	        	            public void run() {
 		    					if (isActive() && player1Accepted && player2Accepted) {
-		                			Inventory p1Inventory = player1.getInventory();
-		                			Inventory p2Inventory = player2.getInventory();
-		                			for (int i = 0; i < 45; i++) {
-		                				if (i % 9 >= 1 && i % 9 <= 3 && i > 9 && i < 36 && i != 39) {
-		                					if (e.getInventory().getItem(i) != null) {
-		                						p2Inventory.addItem(e.getInventory().getItem(i));
-		                					}
-		                				}
-		                				if (i % 9 >= 5 && i % 9 <= 7 && i > 9 && i < 36 && i != 41) {
-		                					if (e.getInventory().getItem(i) != null) {
-		                						p1Inventory.addItem(e.getInventory().getItem(i));
-		                					}
-		                				}
-		                			}
-		        					double p1Money = Double.valueOf(e.getInventory().getItem(37).getItemMeta().getDisplayName().substring(10));
-		        					double p2Money = Double.valueOf(e.getInventory().getItem(43).getItemMeta().getDisplayName().substring(10));
-		        					if (usingVault) {
-		        						vaultEconomy.depositPlayer(player1, p2Money);
-		        						vaultEconomy.withdrawPlayer(player1, p1Money);
-		        						vaultEconomy.depositPlayer(player2, p1Money);
-		        						vaultEconomy.withdrawPlayer(player2, p2Money);
-		        					} else {
-			        					p1Econ.set(p1Econ.get() + (p2Money - p1Money));
-			        					p2Econ.set(p2Econ.get() + (p1Money - p2Money));
-		        					}
-		                			close();
-		                			player1.sendMessage(ChatColor.GREEN + "The trade completed successfully.");
-		                			player2.sendMessage(ChatColor.GREEN + "The trade completed successfully.");
+		    						PlayerTradeAcceptEvent ae = new PlayerTradeAcceptEvent(instance);
+		    						Bukkit.getPluginManager().callEvent(ae);
+		    						if (!ae.getCancelled()) {
+			                			Inventory p1Inventory = player1.getInventory();
+			                			Inventory p2Inventory = player2.getInventory();
+			                			for (int i = 0; i < 45; i++) {
+			                				if (i % 9 >= 1 && i % 9 <= 3 && i > 9 && i < 36 && i != 39) {
+			                					if (e.getInventory().getItem(i) != null) {
+			                						p2Inventory.addItem(e.getInventory().getItem(i));
+			                					}
+			                				}
+			                				if (i % 9 >= 5 && i % 9 <= 7 && i > 9 && i < 36 && i != 41) {
+			                					if (e.getInventory().getItem(i) != null) {
+			                						p1Inventory.addItem(e.getInventory().getItem(i));
+			                					}
+			                				}
+			                			}
+			        					double p1Money = Double.valueOf(e.getInventory().getItem(37).getItemMeta().getDisplayName().substring(10));
+			        					double p2Money = Double.valueOf(e.getInventory().getItem(43).getItemMeta().getDisplayName().substring(10));
+			        					if (usingVault) {
+			        						vaultEconomy.depositPlayer(player1, p2Money);
+			        						vaultEconomy.withdrawPlayer(player1, p1Money);
+			        						vaultEconomy.depositPlayer(player2, p1Money);
+			        						vaultEconomy.withdrawPlayer(player2, p2Money);
+			        					} else {
+				        					p1Econ.set(p1Econ.get() + (p2Money - p1Money));
+				        					p2Econ.set(p2Econ.get() + (p1Money - p2Money));
+			        					}
+			                			close();
+			                			player1.sendMessage(ChatColor.GREEN + "The trade completed successfully.");
+			                			player2.sendMessage(ChatColor.GREEN + "The trade completed successfully.");
+		    						}
 		    					}
 							}
 	        			}.runTaskLater(plugin, 60L);
@@ -369,25 +376,31 @@ public class Trade implements Listener {
 	public void onInventoryClose(InventoryCloseEvent e) {
         Player p = (Player) e.getPlayer();
         if ((p == player1 || p == player2) && isActive()) {
-			Inventory p1Inventory = player1.getInventory();
-			Inventory p2Inventory = player2.getInventory();
-			for (int i = 0; i < 45; i++) {
-				if (i % 9 >= 1 && i % 9 <= 3 && i > 9 && i < 36 && i != 39) {
-					if (e.getInventory().getItem(i) != null) {
-						p1Inventory.addItem(e.getInventory().getItem(i));
+        	PlayerTradeDenyEvent de = new PlayerTradeDenyEvent(this);
+        	Bukkit.getPluginManager().callEvent(de);
+        	if (!de.getCancelled()) {
+				Inventory p1Inventory = player1.getInventory();
+				Inventory p2Inventory = player2.getInventory();
+				for (int i = 0; i < 45; i++) {
+					if (i % 9 >= 1 && i % 9 <= 3 && i > 9 && i < 36 && i != 39) {
+						if (e.getInventory().getItem(i) != null) {
+							p1Inventory.addItem(e.getInventory().getItem(i));
+						}
+					}
+					if (i % 9 >= 5 && i % 9 <= 7 && i > 9 && i < 36 && i != 41) {
+						if (e.getInventory().getItem(i) != null) {
+							p2Inventory.addItem(e.getInventory().getItem(i));
+						}
 					}
 				}
-				if (i % 9 >= 5 && i % 9 <= 7 && i > 9 && i < 36 && i != 41) {
-					if (e.getInventory().getItem(i) != null) {
-						p2Inventory.addItem(e.getInventory().getItem(i));
-					}
-				}
-			}
-			close();
-			player1.closeInventory();
-			player2.closeInventory();
-			player1.sendMessage(ChatColor.RED + "The trade has been cancelled.");
-			player2.sendMessage(ChatColor.RED + "The trade has been cancelled.");
+				close();
+				player1.closeInventory();
+				player2.closeInventory();
+				player1.sendMessage(ChatColor.RED + "The trade has been cancelled.");
+				player2.sendMessage(ChatColor.RED + "The trade has been cancelled.");
+        	} else {
+        		p.openInventory(menu);
+        	}
         }
 	}
 	

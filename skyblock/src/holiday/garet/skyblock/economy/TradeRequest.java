@@ -24,10 +24,12 @@
 
 package holiday.garet.skyblock.economy;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import holiday.garet.skyblock.event.PlayerTradeRequestExpireEvent;
 import net.md_5.bungee.api.ChatColor;
 
 public class TradeRequest {
@@ -51,6 +53,8 @@ public class TradeRequest {
 	            	if (from != null) {
 	            		from.sendMessage(ChatColor.RED + "The trade request to " + to.getName() + " has expired.");
 	            	}
+	            	PlayerTradeRequestExpireEvent e = new PlayerTradeRequestExpireEvent(from, to);
+	            	Bukkit.getPluginManager().callEvent(e);
             	}
             }
             

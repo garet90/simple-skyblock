@@ -70,6 +70,12 @@ CHAT_PREFIX: '$7[$bSKYBLOCK$7] $r'
 # void instead of slowly losing health.
 VOID_INSTANT_DEATH: true
 
+# VOID_INSTAND_DEATH_WORLDS defines which worlds to have
+# players instantly die in the void. Using * will apply
+# void instant death to all worlds.
+VOID_INSTANT_DEATH_WORLDS:
+- '*'
+
 # DISABLE_PLAYER_COLLISIONS toggles player collisions. This
 # is active for the skyworld and the nether counterpart
 # only. (a change from previous versions)
@@ -269,4 +275,4 @@ SOUL_SAND: true
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.3.7
+config-version: 1.3.8

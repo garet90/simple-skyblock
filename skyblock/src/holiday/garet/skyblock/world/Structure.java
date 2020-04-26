@@ -1,10 +1,8 @@
 package holiday.garet.skyblock.world;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -14,8 +12,6 @@ import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.material.MaterialData;
-
 import holiday.garet.skyblock.XMaterial;
 import holiday.garet.skyblock.GMaterial;
 import holiday.garet.skyblock.world.schematic.Schematic;
