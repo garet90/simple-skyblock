@@ -567,6 +567,7 @@ public class GMaterial {
 			case 15: return XMaterial.BLACK_CONCRETE_POWDER;
 			}
 		case 255: return XMaterial.STRUCTURE_BLOCK;
+		case 445: return XMaterial.NETHER_WART_BLOCK;
 		}
 		return null;
 	}

@@ -88,6 +88,7 @@ import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
@@ -101,6 +102,7 @@ import org.spigotmc.event.entity.EntityMountEvent;
 import holiday.garet.skyblock.economy.Economy;
 import holiday.garet.skyblock.economy.Trade;
 import holiday.garet.skyblock.economy.TradeRequest;
+import holiday.garet.skyblock.event.GUISelectItemEvent;
 import holiday.garet.skyblock.event.PlayerCheckIslandLevelEvent;
 import holiday.garet.skyblock.event.PlayerCreateIslandEvent;
 import holiday.garet.skyblock.event.PlayerIslandSetHomeEvent;
@@ -120,6 +122,7 @@ import holiday.garet.skyblock.event.PlayerTrustAddEvent;
 import holiday.garet.skyblock.event.PlayerTrustRemoveEvent;
 import holiday.garet.skyblock.event.PlayerUpdateIslandSettingEvent;
 import holiday.garet.skyblock.event.PlayerVisitIslandEvent;
+import holiday.garet.skyblock.gui.GUI;
 import holiday.garet.skyblock.island.Island;
 import holiday.garet.skyblock.island.IslandInvite;
 import holiday.garet.skyblock.island.SkyblockPlayer;
@@ -164,7 +167,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		convertConfig("1.2.0","1.2.1");
     	} else if (config.getString("config-version").equalsIgnoreCase("1.2.1")) {
     		convertConfig("1.2.1","1.2.2");
-    	} else if (config.getString("config-version").equalsIgnoreCase("1.3.8")) {
+    	} else if (config.getString("config-version").equalsIgnoreCase("1.3.10")) {
     		// config is up to date.
     	} else {
     		getLogger().warning("Your configuration file is out of date! You may continue to use it, but it may not contain the latest settings.");
@@ -185,7 +188,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	
     	// check schematic loading
     	File sc1 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.schematic");
-    	File sc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "nether.schematic");
+    	File sc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default_nether.schematic");
     	File scdir = new File(getDataFolder() + File.separator + "structures");
     	if (!scdir.exists()) {
     		scdir.mkdir();
@@ -207,8 +210,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		try {
 				sc2.createNewFile();
 				OutputStream os1 = new FileOutputStream(sc2);
-				byte[] buffer = new byte[this.getResource("nether.schematic").available()];
-				this.getResource("nether.schematic").read(buffer);
+				byte[] buffer = new byte[this.getResource("default_nether.schematic").available()];
+				this.getResource("default_nether.schematic").read(buffer);
 				os1.write(buffer);
 				os1.close();
 			} catch (IOException e1) {
@@ -358,7 +361,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     public String getLanguage(String _key) {
     	if (language.isSet(_key)) {
-    		return language.getString(_key).replace("&", "§");
+    		return language.getString(_key).replaceAll("&", "§");
     	}
     	getLogger().warning(_key + " not found in language.yml!");
     	return "";
@@ -396,18 +399,58 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     			SkyblockPlayer sp = getSkyblockPlayer(p);
             	if (args.length == 0) {
 	        		if (playerIsland == null) {
-			            PlayerCreateIslandEvent e = new PlayerCreateIslandEvent(sp, p, nextIsland, false);
-			            Bukkit.getPluginManager().callEvent(e);
-			            if (!e.getCancelled()) {
-				            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("generating-island"));
-			            	generateIsland(e.getIslandLocation(), p, null, e.getOverrideResetMoney());
-			            }
+	        			String islandType = "default";
+	        			ConfigurationSection it = config.getConfigurationSection("ISLAND_TYPES");
+	        			if (it != null && it.getKeys(false).size() > 1) {
+	        				
+	        				// max size 45 items (8 island types)
+	        				int types = it.getKeys(false).size();
+	        				int size = 0;
+	        				if (types <= 4) {
+	        					size = 27;
+	        				} else if (size <= 8) {
+	        					size = 45;
+	        				}
+	        				GUI isg = new GUI(getLanguage("gui-select-island-title"), p, size, 0);
+        					this.getServer().getPluginManager().registerEvents(isg, this);
+	        				int i = 0;
+	        				for (String key : it.getKeys(false)) {
+	        					ConfigurationSection itk = it.getConfigurationSection(key);
+	        					ItemStack item = XMaterial.matchXMaterial(itk.getString("item")).get().parseItem();
+	        					ItemMeta itemmeta = item.getItemMeta();
+	        					itemmeta.setDisplayName(itk.getString("name").replaceAll("&", "§"));
+	        					List<String> lore = itk.getStringList("lore");
+	        					for (int ii = 0; ii < lore.size(); ii++) {
+	        						lore.set(ii, lore.get(ii).replaceAll("&", "§"));
+	        					}
+				        		DecimalFormat dec = new DecimalFormat("#0.00");
+	        					if (itk.getDouble("cost") > 0) {
+	        						lore.add("");
+	        						lore.add(ChatColor.GREEN + "Cost: $" + dec.format(itk.getDouble("cost")));
+	        					}
+	        					itemmeta.setLore(lore);
+	        					item.setItemMeta(itemmeta);
+	        					if (i < 4) {
+	        						isg.setSlot(10 + i*2, item, key);
+	        					} else if (i < 8) {
+	        						isg.setSlot(28 + (i-4)*2, item, key);
+	        					}
+	        					i++;
+	        				}
+	        			} else {
+				            PlayerCreateIslandEvent e = new PlayerCreateIslandEvent(sp, p, nextIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+				            Bukkit.getPluginManager().callEvent(e);
+				            if (!e.getCancelled()) {
+					            sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("generating-island"));
+				            	generateIsland(e.getIslandLocation(), p, null, e.getOverrideResetMoney(), islandType);
+				            }
+	        			}
 			            return true;
 	        		} else {
 	        			PlayerTeleportToIslandEvent e = new PlayerTeleportToIslandEvent(p, sp, playerIsland, true);
 	        			Bukkit.getPluginManager().callEvent(e);
 	        			if (!e.getCancelled()) {
-		        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("teleporting-to-island"));
+		        			sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("teleporting-to-island"));
 		        			p.teleport(sp.getHome(), TeleportCause.PLUGIN);
 		        			if (e.getSetSkySpawn()) {
 		        				sp.setSkySpawn(p.getLocation());
@@ -448,7 +491,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        			PlayerTeleportToIslandEvent e = new PlayerTeleportToIslandEvent(p, sp, playerIsland, true);
 	        			Bukkit.getPluginManager().callEvent(e);
 	        			if (!e.getCancelled()) {
-		        			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("teleporting-to-island"));
+		        			sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("teleporting-to-island"));
 		        			p.teleport(sp.getHome(), TeleportCause.PLUGIN);
 		        			if (e.getSetSkySpawn()) {
 		        				sp.setSkySpawn(p.getLocation());
@@ -471,7 +514,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            		if (e.getSetSkySpawn()) {
 			            			sp.setSkySpawn(e.getHomeLocation());
 			            		}
-			            		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("set-island-home"));
+			            		sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("set-island-home"));
 	            			}
 	            		} else {
 	            			sender.sendMessage(ChatColor.RED + getLanguage("not-on-island"));
@@ -486,83 +529,124 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            		if (playerIsland.getLeader().toString().equalsIgnoreCase(p.getUniqueId().toString())) {
 		            		if (args.length == 2 && args[1].equalsIgnoreCase("confirm")) {
 		            			if (playerIsland.canReset() || config.getBoolean("INFINITE_RESETS")) {
-		            				Boolean goAhead = false;
+		            				String islandType = "default";
+		    	        			ConfigurationSection it = config.getConfigurationSection("ISLAND_TYPES");
 		            				Double rcost = null;
 		            				if (config.isBoolean("RESET_COST")) {
-		            					goAhead = true;
+		            					
 		            				} else {
-					            		if (!usingVault) {
-						            		Economy tempEcon = new Economy(p.getUniqueId(), data);
-						            		int resetNumber = config.getInt("RESET_COUNT") - sp.getIsland().getResetsLeft();
-						            		List<Double> resetCost = config.getDoubleList("RESET_COST");
-						            		if (resetNumber >= resetCost.size()) {
-						            			resetNumber = resetCost.size() - 1;
-						            		}
-						            		if (tempEcon.get() >= resetCost.get(resetNumber)) {
-						            			goAhead = true;
-						            			rcost = resetCost.get(resetNumber);
-						            		}
-					            		} else {
-						            		int resetNumber = config.getInt("RESET_COUNT") - sp.getIsland().getResetsLeft();
-						            		List<Double> resetCost = config.getDoubleList("RESET_COST");
-						            		if (resetNumber >= resetCost.size()) {
-						            			resetNumber = resetCost.size() - 1;
-						            		}
-						            		if (vaultEconomy.getBalance(p) >= resetCost.get(resetNumber)) {
-						            			goAhead = true;
-						            			rcost = resetCost.get(resetNumber);
-						            		}
+					            		int resetNumber = config.getInt("RESET_COUNT") - sp.getIsland().getResetsLeft();
+					            		List<Double> resetCost = config.getDoubleList("RESET_COST");
+					            		if (resetNumber >= resetCost.size()) {
+					            			resetNumber = resetCost.size() - 1;
 					            		}
+					            		rcost = resetCost.get(resetNumber);
 		            				}
-				            		if (goAhead) {
-				            			PlayerResetIslandEvent e = new PlayerResetIslandEvent(p, sp, playerIsland, rcost, nextIsland);
-				            			Bukkit.getPluginManager().callEvent(e);
-				            			if (!e.getCancelled()) {
-					            			if (e.getResetCost() != null) {
-							            		if (!usingVault) {
-								            		Economy tempEcon = new Economy(p.getUniqueId(), data);
-								            		tempEcon.withdraw(e.getResetCost());
-							            		} else {
-							            			vaultEconomy.withdrawPlayer(p, e.getResetCost());
+		    	        			if (it != null && it.getKeys(false).size() > 1) {
+		    	        				if (rcost == null) {
+		    	        					rcost = 0.0;
+		    	        				}
+		    	        				// max size 45 items (8 island types)
+		    	        				int types = it.getKeys(false).size();
+		    	        				int size = 0;
+		    	        				if (types <= 4) {
+		    	        					size = 27;
+		    	        				} else if (size <= 8) {
+		    	        					size = 45;
+		    	        				}
+		    	        				GUI isg = new GUI(getLanguage("gui-select-island-title"), p, size, 1);
+		            					this.getServer().getPluginManager().registerEvents(isg, this);
+		    	        				int i = 0;
+		    	        				for (String key : it.getKeys(false)) {
+		    	        					ConfigurationSection itk = it.getConfigurationSection(key);
+		    	        					ItemStack item = XMaterial.matchXMaterial(itk.getString("item")).get().parseItem();
+		    	        					ItemMeta itemmeta = item.getItemMeta();
+		    	        					itemmeta.setDisplayName(itk.getString("name").replaceAll("&", "§"));
+		    	        					List<String> lore = itk.getStringList("lore");
+		    	        					for (int ii = 0; ii < lore.size(); ii++) {
+		    	        						lore.set(ii, lore.get(ii).replaceAll("&", "§"));
+		    	        					}
+		    				        		DecimalFormat dec = new DecimalFormat("#0.00");
+		    	        					if (itk.getDouble("cost") + rcost > 0) {
+		    	        						lore.add("");
+		    	        						lore.add(ChatColor.GREEN + "Cost: $" + dec.format(itk.getDouble("cost") + rcost));
+		    	        					}
+		    	        					itemmeta.setLore(lore);
+		    	        					item.setItemMeta(itemmeta);
+		    	        					if (i < 4) {
+		    	        						isg.setSlot(10 + i*2, item, key);
+		    	        					} else if (i < 8) {
+		    	        						isg.setSlot(28 + (i-4)*2, item, key);
+		    	        					}
+		    	        					i++;
+		    	        				}
+		    	        				return true;
+		    	        			} else {
+			            				Boolean goAhead = false;
+			            				if (config.isBoolean("RESET_COST")) {
+			            					goAhead = true;
+			            				} else {
+						            		if (!usingVault) {
+							            		Economy tempEcon = new Economy(p.getUniqueId(), data);
+							            		if (tempEcon.get() >= rcost) {
+							            			goAhead = true;
 							            		}
-					            				generateIsland(e.getLocation(), p, playerIsland, true);
-					            			} else {
-					            				generateIsland(e.getLocation(), p, playerIsland, false);
-					            			}
-								            List<UUID> islandMembers = playerIsland.getMembers();
-								            for (int i = 0; i < islandMembers.size(); i++) {
-								            	if (islandMembers.get(i) != null) {
-								            		Player tempP = getServer().getPlayer(islandMembers.get(i));
-								            		SkyblockPlayer tempSP = getSkyblockPlayer(tempP);
-								            		tempSP.setHome(sp.getHome());
+						            		} else {
+							            		if (vaultEconomy.getBalance(p) >= rcost) {
+							            			goAhead = true;
+							            		}
+						            		}
+			            				}
+					            		if (goAhead) {
+					            			PlayerResetIslandEvent e = new PlayerResetIslandEvent(p, sp, playerIsland, rcost, nextIsland);
+					            			Bukkit.getPluginManager().callEvent(e);
+					            			if (!e.getCancelled()) {
+						            			if (e.getResetCost() != null) {
 								            		if (!usingVault) {
-									            		Economy tempEcon = new Economy(islandMembers.get(i), data);
-									            		tempEcon.set(0);
+									            		Economy tempEcon = new Economy(p.getUniqueId(), data);
+									            		tempEcon.withdraw(e.getResetCost());
 								            		} else {
-								            			OfflinePlayer op = getServer().getOfflinePlayer(islandMembers.get(i));
-								            			vaultEconomy.withdrawPlayer(op, vaultEconomy.getBalance(op));
+								            			vaultEconomy.withdrawPlayer(p, e.getResetCost());
 								            		}
-								            		if (tempP == null) {
-								            			toClear.add(islandMembers.get(i).toString());
-								            		} else {
-								            			PlayerInventory tempInv = tempP.getInventory();
-								            			tempInv.clear();
-								            			tempInv.setArmorContents(new ItemStack[4]);
-								            			tempP.teleport(sp.getHome(), TeleportCause.PLUGIN);
-								            			tempP.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-success"));
-								            		}
-								            	}
-								            }
-								            PlayerInventory inv = p.getInventory();
-								            inv.clear();
-								            inv.setArmorContents(new ItemStack[4]);
-								            sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-success"));
-				            			}
-							            return true;
-				            		} else {
-			            				sender.sendMessage(ChatColor.RED + getLanguage("reset-not-enough-money"));
-			            				return true;
-				            		}
+						            				generateIsland(e.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+						            			} else {
+						            				generateIsland(e.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+						            			}
+									            List<UUID> islandMembers = playerIsland.getMembers();
+									            for (int i = 0; i < islandMembers.size(); i++) {
+									            	if (islandMembers.get(i) != null) {
+									            		Player tempP = getServer().getPlayer(islandMembers.get(i));
+									            		SkyblockPlayer tempSP = getSkyblockPlayer(tempP);
+									            		tempSP.setHome(sp.getHome());
+									            		if (!usingVault) {
+										            		Economy tempEcon = new Economy(islandMembers.get(i), data);
+										            		tempEcon.set(0);
+									            		} else {
+									            			OfflinePlayer op = getServer().getOfflinePlayer(islandMembers.get(i));
+									            			vaultEconomy.withdrawPlayer(op, vaultEconomy.getBalance(op));
+									            		}
+									            		if (tempP == null) {
+									            			toClear.add(islandMembers.get(i).toString());
+									            		} else {
+									            			PlayerInventory tempInv = tempP.getInventory();
+									            			tempInv.clear();
+									            			tempInv.setArmorContents(new ItemStack[4]);
+									            			tempP.teleport(sp.getHome(), TeleportCause.PLUGIN);
+									            			tempP.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-success"));
+									            		}
+									            	}
+									            }
+									            PlayerInventory inv = p.getInventory();
+									            inv.clear();
+									            inv.setArmorContents(new ItemStack[4]);
+									            sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-success"));
+					            			}
+								            return true;
+					            		} else {
+				            				sender.sendMessage(ChatColor.RED + getLanguage("reset-not-enough-money"));
+				            				return true;
+					            		}
+		    	        			}
 		            			} else {
 		            				sender.sendMessage(ChatColor.RED + getLanguage("reset-no-resets"));
 		            				return true;
@@ -577,7 +661,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					        		DecimalFormat dec = new DecimalFormat("#0.00");
 				            		sender.sendMessage(ChatColor.GREEN + getLanguage("reset-confirm-cost").replace("{money}", String.valueOf(dec.format(resetCost.get(resetNumber)))));
 		            			}
-		            			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("reset-confirm"));
+		            			sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-confirm"));
 		            			if (!config.getBoolean("INFINITE_RESETS")) {
 		            				sender.sendMessage(ChatColor.RED + getLanguage("reset-warn").replace("{resets}", String.valueOf(playerIsland.getResetsLeft())));
 		            			}
@@ -626,7 +710,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            		sp.setSkySpawn(p.getLocation());
 			        			p.setFallDistance(0);
 			        			sp.setVisiting(sz);
-	                			sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("visit-teleport").replace("{player}", pName));
+	                			sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("visit-teleport").replace("{player}", pName));
                 			}
                 			return true;
             			} else if (p.getName().equalsIgnoreCase(args[1])) { 
@@ -675,10 +759,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            					if (!e.getCancelled()) {
 				            				if (e.getValue() == true) {
 				            					playerIsland.setAllowsVisitors(e.getValue());
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-true").replace("{setting}", "allow-visitors"));
+				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-true").replace("{setting}", "allow-visitors"));
 				            				} else if (e.getValue() == false) {
 				            					playerIsland.setAllowsVisitors(e.getValue());
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-false").replace("{setting}", "allow-visitors"));
+				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-false").replace("{setting}", "allow-visitors"));
 				            				} else {
 					                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 				            				}
@@ -701,10 +785,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            					if (!e.getCancelled()) {
 				            				if (e.getValue() == true) {
 				            					playerIsland.setVisitorsCanRideMobs(true);
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-true").replace("{setting}", "visitors-can-ride-mobs"));
+				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-true").replace("{setting}", "visitors-can-ride-mobs"));
 				            				} else if (e.getValue() == false) {
 				            					playerIsland.setVisitorsCanRideMobs(false);
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-false").replace("{setting}", "visitors-can-ride-mobs"));
+				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-false").replace("{setting}", "visitors-can-ride-mobs"));
 				            				} else {
 					                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 				            				}
@@ -727,10 +811,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            					if (!e.getCancelled()) {
 				            				if (e.getValue() == true) {
 				            					playerIsland.setVisitorsCanPortal(true);
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-true").replace("{setting}", "visitors-can-portal"));
+				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-true").replace("{setting}", "visitors-can-portal"));
 				            				} else if (e.getValue() == false) {
 				            					playerIsland.setVisitorsCanPortal(false);
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("settings-set-to-false").replace("{setting}", "visitors-can-portal"));
+				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-false").replace("{setting}", "visitors-can-portal"));
 				            				} else {
 					                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
 				            				}
@@ -1066,7 +1150,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		        								Bukkit.getPluginManager().callEvent(e);
 		        								if (!e.getCancelled()) {
 				        							playerIsland.trustPlayer(op.getUniqueId());
-				        							sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("trust-added"));
+				        							sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("trust-added"));
 		        								}
 			        							return true;
 		        							}
@@ -1077,7 +1161,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		        								Bukkit.getPluginManager().callEvent(e);
 		        								if (!e.getCancelled()) {
 			            							playerIsland.removeTrust(op.getUniqueId());
-				        							sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("trust-removed"));
+				        							sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("trust-removed"));
 		        								}
 			        							return true;
 		        							} else {
@@ -1207,7 +1291,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			return true;
             		}
 	        	} else {
-	        		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
+    				Player r = getServer().getPlayer(args[0]);
+    				if (r != null) {
+    					double payAmount;
+        			    try {
+            				payAmount = Double.valueOf(args[1]);
+        			    } catch (NumberFormatException | NullPointerException nfe) {
+        					sender.sendMessage(ChatColor.RED + getLanguage("money-not-valid"));
+        			        return true;
+        			    }
+    	        		DecimalFormat dec = new DecimalFormat("#0.00");
+    					sender.sendMessage(ChatColor.GREEN + getLanguage("pay-send").replace("{money}", dec.format(payAmount)).replace("{player}", r.getName()));
+    					r.sendMessage(ChatColor.GREEN + getLanguage("pay-receive").replace("{money}", dec.format(payAmount)).replace("{player}", sender.getName()));
+    					vaultEconomy.depositPlayer(r, payAmount);
+    				}
 	        		return true;
 	        	}
         	} else if (config.getBoolean("USE_ECONOMY")) {
@@ -1255,7 +1352,21 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        			return true;
 	        		}
 	        	} else {
-	        		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
+    				Player r = getServer().getPlayer(args[0]);
+    				if (r != null) {
+    					double payAmount;
+        			    try {
+            				payAmount = Double.valueOf(args[1]);
+        			    } catch (NumberFormatException | NullPointerException nfe) {
+        					sender.sendMessage(ChatColor.RED + getLanguage("money-not-valid"));
+        			        return true;
+        			    }
+    	        		DecimalFormat dec = new DecimalFormat("#0.00");
+    					sender.sendMessage(ChatColor.GREEN + getLanguage("pay-send").replace("{money}", dec.format(payAmount)).replace("{player}", r.getName()));
+    					r.sendMessage(ChatColor.GREEN + getLanguage("pay-receive").replace("{money}", dec.format(payAmount)).replace("{player}", sender.getName()));
+        			    Economy econ = new Economy(r.getUniqueId(), data);
+    					econ.deposit(payAmount);
+    				}
 	        		return true;
 	        	}
         	} else {
@@ -1393,7 +1504,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		Player p = (Player) sender;
         		World sw = getServer().getWorlds().get(0);
         		p.teleport(sw.getSpawnLocation());
-        		sender.sendMessage(config.getString("CHAT_PREFIX").replace("$", "§") + getLanguage("spawn"));
+        		sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("spawn"));
         		return true;
         	} else {
         		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
@@ -2127,7 +2238,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				if (!sp.getIsland().getNether()) {
 					Location p1 = sp.getIsland().getP1().clone();
 					p1.setWorld(skyNether);
-					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
+					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))), sp.getIsland().getSchematic() + "_nether");
 					sp.getIsland().setNether(true);
 				}
 			} else if (newTo.getWorld() == skyNether) {
@@ -2161,7 +2272,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				if (!sp.getIsland().getNether()) {
 					Location p1 = sp.getIsland().getP1().clone();
 					p1.setWorld(skyNether);
-					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
+					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))), sp.getIsland().getSchematic() + "_nether");
 					sp.getIsland().setNether(true);
 				}
 			} else if (newTo.getWorld() == skyNether) {
@@ -2175,6 +2286,136 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	public void onWorldSave(WorldSaveEvent e) {
 		saveData();
 		// save data
+	}
+	
+	@EventHandler
+	public void onGUISelectItem(GUISelectItemEvent e) {
+		if (e.getType() == 0 && e.getData() != null) {
+			ConfigurationSection c = config.getConfigurationSection("ISLAND_TYPES." + e.getData());
+			if (!c.isSet("permission") || e.getPlayer().hasPermission(c.getString("permission"))) {
+				// check if has enough money
+				double cost = c.getDouble("cost");
+				boolean hasMoney = false;
+				if (usingVault) {
+					if (vaultEconomy.getBalance(e.getPlayer()) >= cost) {
+						hasMoney = true;
+					}
+	        	} else if (config.getBoolean("USE_ECONOMY")) {
+	        		Economy econ = new Economy(e.getPlayer().getUniqueId(), data);
+	        		if (econ.get() >= cost) {
+	        			hasMoney = true;
+	        		}
+	        	} else if (cost != 0) {
+	        		getLogger().severe("Cannot subtract cost from player because no economy is used at playerCreateIslandEvent!");
+	        	}
+				if (hasMoney) {
+					String islandType = c.getString("schematic");
+		            PlayerCreateIslandEvent ev = new PlayerCreateIslandEvent(getSkyblockPlayer(e.getPlayer()), e.getPlayer(), nextIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+		            Bukkit.getPluginManager().callEvent(ev);
+		            if (!ev.getCancelled()) {
+			            e.getPlayer().sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("generating-island"));
+		            	generateIsland(ev.getIslandLocation(), e.getPlayer(), null, ev.getOverrideResetMoney(), islandType);
+		            	if (cost != 0) {
+			            	if (usingVault) {
+			            		vaultEconomy.withdrawPlayer(e.getPlayer(), cost);
+			            	} else {
+			            		Economy econ = new Economy(e.getPlayer().getUniqueId(), data);
+			            		econ.withdraw(cost);
+			            	}
+		            	}
+		            }
+				} else {
+					e.getPlayer().sendMessage(ChatColor.RED + getLanguage("not-enough-money"));
+				}
+			} else {
+				e.getPlayer().sendMessage(ChatColor.RED + getLanguage("no-permission-island"));
+			}
+		} else if (e.getType() == 1 && e.getData() != null) {
+			ConfigurationSection c = config.getConfigurationSection("ISLAND_TYPES." + e.getData());
+			if (!c.isSet("permission") || e.getPlayer().hasPermission(c.getString("permission"))) {
+				Double rcost = null;
+				if (config.isBoolean("RESET_COST")) {
+					
+				} else {
+            		int resetNumber = config.getInt("RESET_COUNT") - getPlayerIsland(e.getPlayer()).getResetsLeft();
+            		List<Double> resetCost = config.getDoubleList("RESET_COST");
+            		if (resetNumber >= resetCost.size()) {
+            			resetNumber = resetCost.size() - 1;
+            		}
+            		rcost = resetCost.get(resetNumber);
+				}
+				if (rcost == null) {
+					rcost = 0.0;
+				}
+				double cost = c.getDouble("cost") + rcost;
+				boolean hasMoney = false;
+				if (usingVault) {
+					if (vaultEconomy.getBalance(e.getPlayer()) >= cost) {
+						hasMoney = true;
+					}
+	        	} else if (config.getBoolean("USE_ECONOMY")) {
+	        		Economy econ = new Economy(e.getPlayer().getUniqueId(), data);
+	        		if (econ.get() >= cost) {
+	        			hasMoney = true;
+	        		}
+	        	} else if (cost != 0) {
+	        		getLogger().severe("Cannot subtract cost from player because no economy is used at playerCreateIslandEvent!");
+	        	}
+				if (hasMoney) {
+        			PlayerResetIslandEvent ev = new PlayerResetIslandEvent(e.getPlayer(), getSkyblockPlayer(e.getPlayer()), getPlayerIsland(e.getPlayer()), cost, nextIsland);
+        			Bukkit.getPluginManager().callEvent(ev);
+        			if (!ev.getCancelled()) {
+        				String islandType = c.getString("schematic");
+        				Player p = e.getPlayer();
+        				SkyblockPlayer sp = getSkyblockPlayer(p);
+        				Island playerIsland = sp.getIsland();
+            			if (ev.getResetCost() != null) {
+		            		if (!usingVault) {
+			            		Economy tempEcon = new Economy(p.getUniqueId(), data);
+			            		tempEcon.withdraw(ev.getResetCost());
+		            		} else {
+		            			vaultEconomy.withdrawPlayer(p, ev.getResetCost());
+		            		}
+            				generateIsland(ev.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+            			} else {
+            				generateIsland(ev.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+            			}
+			            List<UUID> islandMembers = playerIsland.getMembers();
+			            for (int i = 0; i < islandMembers.size(); i++) {
+			            	if (islandMembers.get(i) != null) {
+			            		Player tempP = getServer().getPlayer(islandMembers.get(i));
+			            		SkyblockPlayer tempSP = getSkyblockPlayer(tempP);
+			            		tempSP.setHome(sp.getHome());
+			            		if (!usingVault) {
+				            		Economy tempEcon = new Economy(islandMembers.get(i), data);
+				            		tempEcon.set(0);
+			            		} else {
+			            			OfflinePlayer op = getServer().getOfflinePlayer(islandMembers.get(i));
+			            			vaultEconomy.withdrawPlayer(op, vaultEconomy.getBalance(op));
+			            		}
+			            		if (tempP == null) {
+			            			toClear.add(islandMembers.get(i).toString());
+			            		} else {
+			            			PlayerInventory tempInv = tempP.getInventory();
+			            			tempInv.clear();
+			            			tempInv.setArmorContents(new ItemStack[4]);
+			            			tempP.teleport(sp.getHome(), TeleportCause.PLUGIN);
+			            			tempP.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-success"));
+			            		}
+			            	}
+			            }
+			            PlayerInventory inv = p.getInventory();
+			            inv.clear();
+			            inv.setArmorContents(new ItemStack[4]);
+			            p.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-success"));
+        			}
+				} else {
+					e.getPlayer().sendMessage(ChatColor.RED + getLanguage("not-enough-money"));
+				}
+			} else {
+				e.getPlayer().sendMessage(ChatColor.RED + getLanguage("no-permission-island"));
+			}
+		}
 	}
 	
     public void saveData() {
@@ -2192,9 +2433,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	data.set("mvhookedworlds", mvHookedWorlds);
     }
 
-	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost) {
+	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost, String schematic) {
 		
-		Structure iss = new Structure(loc, schematics.getSchematic("default"), skyWorld, config, getLogger());
+		Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyWorld, config, getLogger());
 		iss.generate();
 		
 		p.setFallDistance(0);
@@ -2206,7 +2447,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    SkyblockPlayer sp = getSkyblockPlayer(p);
 	    sp.setSkySpawn(iss.getPlayerSpawn());
 	    if (playerIsland == null) {
-		    Island newIs = new Island(np1, np2, 100, nextIslandKey, p, skyWorld, config.getInt("RESET_COUNT"), data, this);
+		    Island newIs = new Island(np1, np2, 100, nextIslandKey, p, skyWorld, config.getInt("RESET_COUNT"), schematic, data, this);
 		    nextIslandKey++;
 		    newIs.setNether(false);
 		    islands.add(newIs);
@@ -2216,6 +2457,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    	playerIsland.setP2(np2);
 	    	playerIsland.setPoints(100);
 	    	playerIsland.setNether(false);
+	    	playerIsland.setSchematic(schematic);
 	    	playerIsland.removeReset();
 	    }
 		sp.setVisiting(null);
@@ -2238,9 +2480,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    }
 	}
 	
-	public void generateNetherIsland(Location loc) {
+	public void generateNetherIsland(Location loc, String schematic) {
 		
-		Structure iss = new Structure(loc, schematics.getSchematic("nether"), skyNether, config, getLogger());
+		Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyNether, config, getLogger());
 		iss.generate();
 		
 	}

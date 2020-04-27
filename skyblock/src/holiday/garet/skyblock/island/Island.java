@@ -51,6 +51,7 @@ public class Island {
 	Boolean visitorsCanPortal = true;
 	Boolean nether;
 	double points;
+	String schematic;
 	Plugin plugin;
 
 	public Island(int _islandKey, World _world, FileConfiguration _data, Plugin _plugin) {
@@ -87,7 +88,7 @@ public class Island {
 		}
 	}
 	
-	public Island(Location _p1, Location _p2, double _pts, int _islandKey, Player _leader, World _world, int _resetsLeft, FileConfiguration _data, Plugin _plugin) {
+	public Island(Location _p1, Location _p2, double _pts, int _islandKey, Player _leader, World _world, int _resetsLeft, String s, FileConfiguration _data, Plugin _plugin) {
 		p1 = _p1;
 		p2 = _p2;
 		islandKey = _islandKey;
@@ -99,6 +100,7 @@ public class Island {
 		members = new ArrayList<String>();
 		nether = false;
 		trusts = new ArrayList<String>();
+		schematic = s;
 	}
 	
 	public Island(World _world, Location _p1, Location _p2, Player _leader, FileConfiguration _data) {
@@ -329,6 +331,14 @@ public class Island {
 
 	public void removeTrust(UUID _uuid) {
 		trusts.remove(String.valueOf(_uuid));
+	}
+	
+	public String getSchematic() {
+		return schematic;
+	}
+	
+	public void setSchematic(String s) {
+		schematic = s;
 	}
 	
 }

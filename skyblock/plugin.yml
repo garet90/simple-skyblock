@@ -1,6 +1,6 @@
 main: holiday.garet.skyblock.SimpleSkyblock
 name: SimpleSkyblock
-version: 1.3.9
+version: 1.3.10
 api-version: 1.13
 author: garet90
 description: A simple skyblock plugin.
@@ -15,7 +15,7 @@ commands:
   description: Alias of /island
   usage: /is [args]
   permission: skyblock.island
-  permission-message: You don't have the skyblock.island permission.
+  permission-message: You don't have the skyblock.i.jsland permission.
  balance:
   description: See how much money a player has.
   usage: /balance [player]

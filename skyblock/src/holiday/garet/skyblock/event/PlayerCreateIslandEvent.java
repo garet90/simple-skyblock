@@ -14,12 +14,14 @@ public class PlayerCreateIslandEvent extends Event {
 	private boolean cancelled = false;
 	private Location islandLocation;
 	private boolean resetMoney;
+	private String type;
 	
-	public PlayerCreateIslandEvent(SkyblockPlayer sp, Player p, Location loc, boolean rm) {
+	public PlayerCreateIslandEvent(SkyblockPlayer sp, Player p, Location loc, boolean rm, String t) {
 		skyblockPlayer = sp;
 		player = p;
 		islandLocation = loc;
 		resetMoney = rm;
+		type = t;
 	}
 	
 	public boolean getCancelled() {
@@ -52,6 +54,10 @@ public class PlayerCreateIslandEvent extends Event {
 	
 	public void setOverrideResetMoney(boolean rm) {
 		resetMoney = rm;
+	}
+	
+	public String getType() {
+		return type;
 	}
 
     private static final HandlerList HANDLERS = new HandlerList();
