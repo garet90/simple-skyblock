@@ -30,6 +30,8 @@ package holiday.garet.skyblock;
 public class GMaterial {
 	public static XMaterial getMaterial(int id, byte data) {
 		switch(id) {
+		case -103: return XMaterial.NETHER_QUARTZ_ORE;
+		case -43: return XMaterial.MAGMA_BLOCK;
 		case 0: return XMaterial.AIR;
 		case 1: 
 			switch(data) {
@@ -68,9 +70,9 @@ public class GMaterial {
 			case 5: return XMaterial.DARK_OAK_SAPLING;
 			}
 		case 7: return XMaterial.BEDROCK;
-		case 8: return XMaterial.WATER;
+		case 8: return XMaterial.AIR;
 		case 9: return XMaterial.WATER;
-		case 10: return XMaterial.LAVA;
+		case 10: return XMaterial.AIR;
 		case 11: return XMaterial.LAVA;
 		case 12: 
 			switch(data) {

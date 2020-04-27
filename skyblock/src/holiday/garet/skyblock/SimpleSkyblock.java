@@ -63,6 +63,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFormEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -151,7 +152,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	Boolean usingVault = false;
 	net.milkbowl.vault.economy.Economy vaultEconomy = null;
-	Boolean usingSkript = false;
+	com.onarandombox.MultiverseCore.api.MVWorldManager mvWorldManager = null;
+	String mvHookedWorlds = "world";
 	
     @Override
     public void onEnable() {
@@ -264,36 +266,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	if (data.isSet("data.nextIsland.key")) {
     		nextIslandKey = data.getInt("data.nextIsland.key");
     	}
+    	if (data.isSet("mvhookedworlds")) {
+    		mvHookedWorlds = data.getString("mvhookedworlds");
+    	}
     	if (getServer().getPluginManager().getPlugin("Vault")!=null) {
     		RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> rsp = getServer().getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
     		if (rsp != null) {
             	vaultEconomy = rsp.getProvider();
             	usingVault = true;
     		}
-    	}
-    	if (getServer().getPluginManager().getPlugin("Skript")!=null) {
-    		usingSkript = true;
-    		/*
-    		 * Events:
-    		 * - onPlayerCreateIsland (called after reset or create)
-    		 * - onPlayerResetIsland (called after reset)
-    		 * - onPlayerTeleportToIsland
-    		 * - onPlayerVisitIsland
-    		 * - onPlayerUpdateIslandSetting
-    		 * - onPlayerSetHome
-    		 * - onPlayerIslandInvite
-    		 * - onPlayerJoinIsland
-    		 * - onPlayerLeaveIsland
-    		 * - onPlayerKickedIsland
-    		 * - onPlayerMakeLeader
-    		 * - onPlayerCheckIslandLevel
-    		 * - onPlayerTradeRequest
-    		 * - onPlayerTradeAccept
-    		 * - onPlayerTradeDeny
-    		 * - onPlayerTradeOpen
-    		 * - onPlayerPay
-    		 * - onPlayerToggleFly
-    		 */
     	}
     	getLogger().info("SimpleSkyblock has been enabled!");
     	try {
@@ -334,6 +315,18 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	}
     	if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null){
             new SkyPlaceholderExpansion(this).register();
+    	}
+    	if(Bukkit.getPluginManager().getPlugin("Multiverse-Core") != null && mvHookedWorlds != worldName) {
+	        BukkitScheduler scheduler = getServer().getScheduler();
+	        scheduler.scheduleSyncDelayedTask(this, new Runnable() {
+	            @Override
+	            public void run() {
+	        		getLogger().info("Communicating with Multiverse to add worlds...");
+	        		Bukkit.dispatchCommand(Bukkit.getServer().getConsoleSender(), "mv import " + worldName + " NORMAL SimpleSkyblock -n");
+		    		Bukkit.dispatchCommand(Bukkit.getServer().getConsoleSender(), "mv import " + worldName + "_nether NETHER SimpleSkyblock -n");
+		    		mvHookedWorlds = worldName;
+	            }
+	        }, 1L);
     	}
     	
     	if (schematics.getSchematic("default") == null) {
@@ -1805,6 +1798,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 									break;
 								}
 							}
+							
+							BlockFormEvent ne = new BlockFormEvent(b, b.getState());
+							Bukkit.getPluginManager().callEvent(ne);
 	            		}
 	            	}
 	            }
@@ -2099,7 +2095,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
 		Player p = e.getPlayer();
-		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
+		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER") && !Bukkit.getServer().getVersion().contains("1.15")) {
 			SkyblockPlayer sp = getSkyblockPlayer(p);
 			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().visitorsCanPortal()) {
@@ -2115,11 +2111,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					p1.setWorld(skyNether);
 					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
 					sp.getIsland().setNether(true);
-				}
-				if (newTo.getBlock() != null && newTo.getBlock().getRelative(BlockFace.DOWN,1).getType() == XMaterial.AIR.parseMaterial()) {
-					newTo.getBlock().getRelative(BlockFace.DOWN,1).setType(XMaterial.OBSIDIAN.parseMaterial());
-					newTo.getBlock().setType(XMaterial.AIR.parseMaterial());
-					newTo.getBlock().getRelative(BlockFace.UP,1).setType(XMaterial.AIR.parseMaterial());
 				}
 			} else if (newTo.getWorld() == skyNether) {
 				newTo.setWorld(skyWorld);
@@ -2155,11 +2146,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))));
 					sp.getIsland().setNether(true);
 				}
-				if (newTo.getBlock() != null && newTo.getBlock().getRelative(BlockFace.DOWN,1).getType() == XMaterial.AIR.parseMaterial()) {
-					newTo.getBlock().getRelative(BlockFace.DOWN,1).setType(XMaterial.OBSIDIAN.parseMaterial());
-					newTo.getBlock().setType(XMaterial.AIR.parseMaterial());
-					newTo.getBlock().getRelative(BlockFace.UP,1).setType(XMaterial.AIR.parseMaterial());
-				}
 			} else if (newTo.getWorld() == skyNether) {
 				newTo.setWorld(skyWorld);
 				e.setTo(newTo);
@@ -2185,6 +2171,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	data.set("data.nextIsland.z", nextIsland.getBlockZ());
     	data.set("data.nextIsland.key", nextIslandKey);
     	data.set("data.toClear", toClear);
+    	data.set("mvhookedworlds", mvHookedWorlds);
     }
 
 	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost) {
