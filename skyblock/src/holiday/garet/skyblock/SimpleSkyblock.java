@@ -215,7 +215,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				os1.write(buffer);
 				os1.close();
 			} catch (IOException e1) {
-				getLogger().severe("An error occurred trying to save default.schematic!");
+				getLogger().severe("An error occurred trying to save default_nether.schematic!");
 				e1.printStackTrace();
 			}
     	}
