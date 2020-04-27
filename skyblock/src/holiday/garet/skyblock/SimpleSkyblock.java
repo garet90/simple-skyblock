@@ -152,7 +152,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	Boolean usingVault = false;
 	net.milkbowl.vault.economy.Economy vaultEconomy = null;
-	com.onarandombox.MultiverseCore.api.MVWorldManager mvWorldManager = null;
 	String mvHookedWorlds = "world";
 	
     @Override
@@ -165,7 +164,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		convertConfig("1.2.0","1.2.1");
     	} else if (config.getString("config-version").equalsIgnoreCase("1.2.1")) {
     		convertConfig("1.2.1","1.2.2");
-    	} else if (config.getString("config-version").equalsIgnoreCase("1.3.7")) {
+    	} else if (config.getString("config-version").equalsIgnoreCase("1.3.8")) {
     		// config is up to date.
     	} else {
     		getLogger().warning("Your configuration file is out of date! You may continue to use it, but it may not contain the latest settings.");
@@ -217,6 +216,17 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				e1.printStackTrace();
 			}
     	}
+
+    	File oldsc1 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.yml");
+    	File oldsc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml");
+    	if (oldsc1.exists()) {
+    		getLogger().info("Deleting old structures/default.yml");
+    		oldsc1.delete();
+    	}
+    	if (oldsc2.exists()) {
+    		getLogger().info("Deleting old structures/nether.yml");
+    		oldsc2.delete();
+    	}
     	
     	schematics = new SchematicUtils(new File(getDataFolder() + File.separator + "structures"));
     	
@@ -241,6 +251,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	                wc.generator(new Generator());
 	                wc.createWorld();
 	                skyWorld = getServer().getWorld(worldName);
+	            	if (!(skyWorld.getGenerator() instanceof Generator)) {
+	            		getLogger().warning("Warning! You are not using SimpleSkyblock's world generator! Add the following to your 'bukkit.yml' file:");
+	            		getLogger().warning("worlds:");
+	            		getLogger().warning("  " + worldName + ": ");
+	            		getLogger().warning("    generator: SimpleSkyblock");
+	            		getLogger().warning("  " + worldName + "_nether: ");
+	            		getLogger().warning("    generator: SimpleSkyblock");
+	            	}
                 }
             }, 0L);
     	}
