@@ -10,6 +10,7 @@
         	<fileset file="language.yml"></fileset>
         	<fileset file="default.schematic"></fileset>
         	<fileset file="default_nether.schematic"></fileset>
+        	<fileset file="levelpoints.yml"></fileset>
         </jar>
     </target>
 </project>

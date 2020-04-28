@@ -200,26 +200,6 @@ CHEST_ITEMS:
 - CACTUS:1
 - COBBLESTONE:16
 
-# LEVEL_POINTS are the points which you players get
-# added towards their islands based on each block
-# placed, destroyed, or generated.
-# The island level is calculated using the following
-# formula:
-# l = sqrt(p)-9
-# where p is the amount of points an island has. Each
-# island starts with 100 points by default.
-# All other blocks not listed are calculated using
-# the value of 'Default'.
-LEVEL_PTS:
-- Default:1
-- COBBLESTONE:0.1
-- SAPLING:50
-- DIAMOND_BLOCK:1000
-- EMERALD_BLOCK:750
-- IRON_BLOCK:100
-- REDSTONE_BLOCK:50
-- OBSIDIAN:75
-
 # USE_TRUSTS determines whether islands can "trust"
 # players to break blocks, use chests, kill mobs, etc
 # without actually being a member of the island.
@@ -311,4 +291,4 @@ SOUL_SAND: true
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.3.10
+config-version: 1.4.0

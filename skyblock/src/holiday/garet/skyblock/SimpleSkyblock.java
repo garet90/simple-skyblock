@@ -37,6 +37,7 @@ import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Chunk;
 import org.bukkit.Effect;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -103,7 +104,7 @@ import holiday.garet.skyblock.economy.Economy;
 import holiday.garet.skyblock.economy.Trade;
 import holiday.garet.skyblock.economy.TradeRequest;
 import holiday.garet.skyblock.event.GUISelectItemEvent;
-import holiday.garet.skyblock.event.PlayerCheckIslandLevelEvent;
+import holiday.garet.skyblock.event.LevelCalculatorFinishEvent;
 import holiday.garet.skyblock.event.PlayerCreateIslandEvent;
 import holiday.garet.skyblock.event.PlayerIslandSetHomeEvent;
 import holiday.garet.skyblock.event.PlayerJoinIslandEvent;
@@ -129,12 +130,14 @@ import holiday.garet.skyblock.island.SkyblockPlayer;
 import holiday.garet.skyblock.world.Generator;
 import holiday.garet.skyblock.world.Structure;
 import holiday.garet.skyblock.world.schematic.SchematicUtils;
+import holiday.garet.skyblock.world.tools.LevelCalculator;
 
 @SuppressWarnings("deprecation")
 public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	FileConfiguration config = this.getConfig();
 	FileConfiguration data = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "data.yml"));
+	FileConfiguration levelpoints = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "levelpoints.yml"));
 	FileConfiguration language = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "language.yml"));
 	
 	SchematicUtils schematics;
@@ -167,7 +170,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		convertConfig("1.2.0","1.2.1");
     	} else if (config.getString("config-version").equalsIgnoreCase("1.2.1")) {
     		convertConfig("1.2.1","1.2.2");
-    	} else if (config.getString("config-version").equalsIgnoreCase("1.3.10")) {
+    	} else if (config.getString("config-version").equalsIgnoreCase("1.4.0")) {
     		// config is up to date.
     	} else {
     		getLogger().warning("Your configuration file is out of date! You may continue to use it, but it may not contain the latest settings.");
@@ -184,6 +187,23 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			} catch (Exception e) {
 				getLogger().warning("Unable to save language.yml!");
 			}
+    	}
+    	File levelpointsFile = new File(getDataFolder(), "levelpoints.yml");
+    	if (!levelpointsFile.exists()) {
+    		try {
+				levelpoints = YamlConfiguration.loadConfiguration(new InputStreamReader(this.getResource("levelpoints.yml"), "UTF8"));
+				levelpoints.save(getDataFolder() + File.separator + "levelpoints.yml");
+			} catch (Exception e) {
+				getLogger().warning("Unable to save levelpoints.yml!");
+			}
+    	}
+    	
+    	for (String key : levelpoints.getKeys(false)) {
+    		try {
+    			LevelCalculator.points.put(XMaterial.matchXMaterial(key).get().parseMaterial(), levelpoints.getInt(key));
+    		} catch (Exception e) {
+    			getLogger().severe("Could not add item to leveling calculator: " + key);
+    		}
     	}
     	
     	// check schematic loading
@@ -354,8 +374,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		getLogger().warning("Default schematic could not be loaded!");
     	}
     	
-    	if (schematics.getSchematic("nether") == null) {
-    		getLogger().warning("Nether schematic could not be loaded!");
+    	if (schematics.getSchematic("default_nether") == null) {
+    		getLogger().warning("Default nether schematic could not be loaded!");
     	}
     }
     
@@ -1080,16 +1100,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         			}
             	} else if (args[0].equalsIgnoreCase("level")) {
             		if (playerIsland != null) {
-            			int isLevel = 0;
-            			isLevel = (int)Math.floor(Math.sqrt(playerIsland.getPoints())-9);
-            			if (isLevel < 0) {
-            				isLevel = 0;
+            			List<Chunk> c = new ArrayList<Chunk>(2);
+            			Chunk o = skyWorld.getChunkAt(playerIsland.getP1().clone().add(config.getInt("ISLAND_WIDTH")/2, 0, config.getInt("ISLAND_DEPTH")/2));
+            			c.add(o);
+            			if (config.getBoolean("USE_NETHER")) {
+            				Chunk n = skyNether.getChunkAt(playerIsland.getP1().clone().add(config.getInt("ISLAND_WIDTH")/2, 0, config.getInt("ISLAND_DEPTH")/2));
+            				c.add(n);
             			}
-            			PlayerCheckIslandLevelEvent e = new PlayerCheckIslandLevelEvent(p, sp, playerIsland, isLevel, playerIsland.getPoints());
-            			Bukkit.getPluginManager().callEvent(e);
-            			if (!e.getCancelled()) {
-            				sender.sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf(e.getLevel())));
-            			}
+            			new LevelCalculator(c, p);
+            			sender.sendMessage(ChatColor.GREEN + getLanguage("level-calculating"));
 	            		return true;
             		} else {
             			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
@@ -1536,27 +1555,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    			}
     			}
     		}
-    		if (!e.isCancelled() && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
-    			if (playerIsland != null) {
-					Double addPts = 0.0;
-					List<String> LEVEL_PTS = config.getStringList("LEVEL_PTS");
-					for (int i = 0; i < LEVEL_PTS.size(); i++) {
-	    				String btype = LEVEL_PTS.get(i).split(":")[0];
-	    				Double bpts = Double.valueOf(LEVEL_PTS.get(i).split(":")[1]);
-	    				if (btype.equalsIgnoreCase("Default")) {
-	    					addPts = bpts;
-	    				} else {
-	    					Material bmat = XMaterial.matchXMaterial(btype).get().parseMaterial();
-	    					if (bmat != null && e.getBlock().getType() == bmat) {
-	    						addPts = bpts;
-	    					} else if (bmat == null) {
-	    						getLogger().severe("Unknown block at ADD_PTS \"" + btype + "\"");
-	    					}
-	    				}
-					}
-					playerIsland.setPoints(playerIsland.getPoints() + addPts);
-    			}
-    		}
     	}
     }
     
@@ -1580,27 +1578,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    				e.setCancelled(false);
 	    				playerIsland = sp.getVisiting().getIsland();
 	    			}
-    			}
-    		}
-    		if (!e.isCancelled() && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
-    			if (playerIsland != null) {
-					Double addPts = 0.0;
-					List<String> LEVEL_PTS = config.getStringList("LEVEL_PTS");
-					for (int i = 0; i < LEVEL_PTS.size(); i++) {
-	    				String btype = LEVEL_PTS.get(i).split(":")[0];
-	    				Double bpts = Double.valueOf(LEVEL_PTS.get(i).split(":")[1]);
-	    				if (btype.equalsIgnoreCase("Default")) {
-	    					addPts = bpts;
-	    				} else {
-	    					Material bmat = XMaterial.matchXMaterial(btype).get().parseMaterial();
-	    					if (bmat != null && e.getBlock().getType() == bmat) {
-	    						addPts = bpts;
-	    					} else if (bmat == null) {
-	    						getLogger().severe("Unknown block at ADD_PTS \"" + btype + "\"");
-	    					}
-	    				}
-					}
-					playerIsland.setPoints(playerIsland.getPoints()-addPts);
     			}
     		}
     	}
@@ -1901,33 +1878,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 						    	b.setType(XMaterial.COBBLESTONE.parseMaterial());
 						    }
 						    
-						    Location bLoc = b.getLocation();
-
-							for (int i = 0; i < players.size(); i++) {
-								SkyblockPlayer player = players.get(i);
-								Island playerIsland = getPlayerIsland(player.getPlayer());
-								if (playerIsland != null && playerIsland.inBounds(bLoc)) {
-									Double addPts = 0.0;
-									List<String> LEVEL_PTS = config.getStringList("LEVEL_PTS");
-				    				for (int ii = 0; ii < LEVEL_PTS.size(); ii++) {
-			            				String btype = LEVEL_PTS.get(ii).split(":")[0];
-			            				Double bpts = Double.valueOf(LEVEL_PTS.get(ii).split(":")[1]);
-			            				if (btype.equalsIgnoreCase("Default")) {
-			            					addPts = bpts;
-			            				} else {
-			            					Material bmat = XMaterial.matchXMaterial(btype).get().parseMaterial();
-			            					if (bmat != null && b.getType() == bmat) {
-			            						addPts = bpts;
-			            					} else if (bmat == null) {
-			            						getLogger().severe("Unknown block at ADD_PTS \"" + btype + "\"");
-			            					}
-			            				}
-				    				}
-									playerIsland.setPoints(playerIsland.getPoints() + addPts);
-									break;
-								}
-							}
-							
 							BlockFormEvent ne = new BlockFormEvent(b, b.getState());
 							Bukkit.getPluginManager().callEvent(ne);
 	            		}
@@ -2418,6 +2368,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		}
 	}
 	
+	@EventHandler
+	public void onLevelCalculatorFinish(LevelCalculatorFinishEvent e) {
+		getLogger().info("Checked " + e.getCalculator().getCheckedCount() + " chunks and calculated " + e.getCalculator().getPts() + " pts");
+		e.getPlayer().sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf((int)Math.floor((e.getCalculator().getPts()/100)+(e.getCalculator().getCheckedCount()/10)))));
+	}
+	
     public void saveData() {
 		for (int i = 0; i < islands.size(); i++) {
 			islands.get(i).saveIsland();
@@ -2455,7 +2411,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    } else {
 	    	playerIsland.setP1(np1);
 	    	playerIsland.setP2(np2);
-	    	playerIsland.setPoints(100);
 	    	playerIsland.setNether(false);
 	    	playerIsland.setSchematic(schematic);
 	    	playerIsland.removeReset();

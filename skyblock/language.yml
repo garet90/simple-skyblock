@@ -47,6 +47,7 @@ promoted-not-member: 'The player must be a member of your island to become leade
 promoted-already-leader: 'You are already island leader!'
 promoted-not-online: 'The player must be online to become leader!'
 promoted-usage: 'Usage: /island makeleader <player>'
+level-calculating: 'Calculating island level... (this may take a moment)'
 level: 'Your island is level {level}.'
 unknown-command: 'Unknown command. Type "/is help" for a list of commands.'
 balance: 'Balance: &a${money}'

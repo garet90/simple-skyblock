@@ -50,7 +50,6 @@ public class Island {
 	Boolean visitorsCanRideMobs = false;
 	Boolean visitorsCanPortal = true;
 	Boolean nether;
-	double points;
 	String schematic;
 	Plugin plugin;
 
@@ -73,7 +72,6 @@ public class Island {
 			allowVisitors = data.getBoolean("data.islands." + islandKey + ".allowVisitors");
 			visitorsCanRideMobs = data.getBoolean("data.islands." + islandKey + ".visitorsCanRideMobs");
 			visitorsCanPortal = data.getBoolean("data.islands." + islandKey + ".visitorsCanPortal");
-			points = data.getDouble("data.islands." + islandKey + ".points");
 			canReset = data.getBoolean("data.islands." + islandKey + ".canReset");
 			resetsLeft = data.getInt("data.islands." + islandKey + ".resetsLeft");
 			trusts = data.getStringList("data.islands." + islandKey + ".trusts");
@@ -142,7 +140,6 @@ public class Island {
 		data.set("data.islands." + String.valueOf(islandKey) + ".visitorsCanRideMobs", visitorsCanRideMobs);
 		data.set("data.islands." + String.valueOf(islandKey) + ".visitorsCanPortal", visitorsCanPortal);
 		data.set("data.islands." + String.valueOf(islandKey) + ".canReset", canReset);
-		data.set("data.islands." + String.valueOf(islandKey) + ".points", points);
 		data.set("data.islands." + String.valueOf(islandKey) + ".nether", nether);
 		data.set("data.islands." + String.valueOf(islandKey) + ".resetsLeft", resetsLeft);
 		data.set("data.islands." + String.valueOf(islandKey) + ".trusts", trusts);
@@ -164,14 +161,6 @@ public class Island {
 			return true;
 		}
 		return false;
-	}
-	
-	public Double getPoints() {
-		return points;
-	}
-	
-	public void setPoints(double _points) {
-		points = _points;
 	}
 	
 	public UUID getLeader() {
