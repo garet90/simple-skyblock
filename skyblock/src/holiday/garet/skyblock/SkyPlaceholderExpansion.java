@@ -132,11 +132,6 @@ public class SkyPlaceholderExpansion extends PlaceholderExpansion {
         
     	Island is = findIsland(player);
 
-        // %someplugin_placeholder1%
-        if(identifier.equals("points")){
-            return is.getPoints().toString();
-        }
-
         // %someplugin_placeholder2%
         if(identifier.equals("canreset")){
             return String.valueOf(is.canReset());

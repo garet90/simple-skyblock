@@ -1,6 +1,6 @@
 main: holiday.garet.skyblock.SimpleSkyblock
 name: SimpleSkyblock
-version: 1.4.0-00
+version: 1.4.0-01
 api-version: 1.13
 author: garet90
 description: A simple skyblock plugin.

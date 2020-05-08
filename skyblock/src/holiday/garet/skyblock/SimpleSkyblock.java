@@ -31,6 +31,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -48,6 +49,9 @@ import org.bukkit.World.Environment;
 import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Chest;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Directional;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
@@ -87,6 +91,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -100,6 +105,9 @@ import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 import org.spigotmc.event.entity.EntityMountEvent;
 
+import holiday.garet.GStructure.GStructure;
+import holiday.garet.GStructure.BlockEntityTag.JigsawTag;
+import holiday.garet.GStructure.Event.StructurePaintEvent;
 import holiday.garet.skyblock.economy.Economy;
 import holiday.garet.skyblock.economy.Trade;
 import holiday.garet.skyblock.economy.TradeRequest;
@@ -128,8 +136,6 @@ import holiday.garet.skyblock.island.Island;
 import holiday.garet.skyblock.island.IslandInvite;
 import holiday.garet.skyblock.island.SkyblockPlayer;
 import holiday.garet.skyblock.world.Generator;
-import holiday.garet.skyblock.world.Structure;
-import holiday.garet.skyblock.world.schematic.SchematicUtils;
 import holiday.garet.skyblock.world.tools.LevelCalculator;
 
 @SuppressWarnings("deprecation")
@@ -139,13 +145,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	FileConfiguration data = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "data.yml"));
 	FileConfiguration levelpoints = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "levelpoints.yml"));
 	FileConfiguration language = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "language.yml"));
-	
-	SchematicUtils schematics;
 
 	public static List<SkyblockPlayer> players = new ArrayList<SkyblockPlayer>();
 	public static List<Island> islands = new ArrayList<Island>();
 	List<TradeRequest> tradingRequests = new ArrayList<TradeRequest>();
 	List<IslandInvite> islandInvites = new ArrayList<IslandInvite>();
+	
+	public HashMap<Integer, Location> spawnLocations = new HashMap<Integer, Location>();
 	
 	int nextIslandKey = 0;
 	
@@ -207,8 +213,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	}
     	
     	// check schematic loading
-    	File sc1 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.schematic");
-    	File sc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default_nether.schematic");
+    	File sc1 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.nbt");
+    	File sc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default_nether.nbt");
     	File scdir = new File(getDataFolder() + File.separator + "structures");
     	if (!scdir.exists()) {
     		scdir.mkdir();
@@ -217,12 +223,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		try {
 				sc1.createNewFile();
 				OutputStream os1 = new FileOutputStream(sc1);
-				byte[] buffer = new byte[this.getResource("default.schematic").available()];
-				this.getResource("default.schematic").read(buffer);
+				byte[] buffer = new byte[this.getResource("default.nbt").available()];
+				this.getResource("default.nbt").read(buffer);
 				os1.write(buffer);
 				os1.close();
 			} catch (IOException e1) {
-				getLogger().severe("An error occurred trying to save default.schematic!");
+				getLogger().severe("An error occurred trying to save default.nbt!");
 				e1.printStackTrace();
 			}
     	}
@@ -230,18 +236,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		try {
 				sc2.createNewFile();
 				OutputStream os1 = new FileOutputStream(sc2);
-				byte[] buffer = new byte[this.getResource("default_nether.schematic").available()];
-				this.getResource("default_nether.schematic").read(buffer);
+				byte[] buffer = new byte[this.getResource("default_nether.nbt").available()];
+				this.getResource("default_nether.nbt").read(buffer);
 				os1.write(buffer);
 				os1.close();
 			} catch (IOException e1) {
-				getLogger().severe("An error occurred trying to save default_nether.schematic!");
+				getLogger().severe("An error occurred trying to save default_nether.nbt!");
 				e1.printStackTrace();
 			}
     	}
 
     	File oldsc1 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.yml");
     	File oldsc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml");
+    	File oldsc3 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.schematic");
+    	File oldsc4 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default_nether.schematic");
     	if (oldsc1.exists()) {
     		getLogger().info("Deleting old structures/default.yml");
     		oldsc1.delete();
@@ -250,8 +258,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		getLogger().info("Deleting old structures/nether.yml");
     		oldsc2.delete();
     	}
-    	
-    	schematics = new SchematicUtils(new File(getDataFolder() + File.separator + "structures"));
+    	if (oldsc3.exists()) {
+    		getLogger().info("Deleting old structures/default.schematic");
+    		oldsc3.delete();
+    	}
+    	if (oldsc4.exists()) {
+    		getLogger().info("Deleting old structures/default_nether.schematic");
+    		oldsc4.delete();
+    	}
     	
     	
     	final String worldName;
@@ -368,14 +382,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		    		mvHookedWorlds = worldName;
 	            }
 	        }, 1L);
-    	}
-    	
-    	if (schematics.getSchematic("default") == null) {
-    		getLogger().warning("Default schematic could not be loaded!");
-    	}
-    	
-    	if (schematics.getSchematic("default_nether") == null) {
-    		getLogger().warning("Default nether schematic could not be loaded!");
     	}
     }
     
@@ -2188,7 +2194,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				if (!sp.getIsland().getNether()) {
 					Location p1 = sp.getIsland().getP1().clone();
 					p1.setWorld(skyNether);
-					generateNetherIsland(p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2))), sp.getIsland().getSchematic() + "_nether");
+					Location netherIslandLocation = p1.add(new Location(skyNether, Math.round(config.getInt("ISLAND_WIDTH")/2),config.getInt("ISLAND_HEIGHT"),Math.round(config.getInt("ISLAND_DEPTH")/2)));
+					generateNetherIsland(netherIslandLocation, sp.getIsland().getSchematic() + "_nether");
 					sp.getIsland().setNether(true);
 				}
 			} else if (newTo.getWorld() == skyNether) {
@@ -2374,6 +2381,64 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		e.getPlayer().sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf((int)Math.floor((e.getCalculator().getPts()/100)+(e.getCalculator().getCheckedCount()/10)))));
 	}
 	
+	@EventHandler
+	public void onStructurePaint(StructurePaintEvent e) {
+		if (e.getPalette().getName().replaceFirst("minecraft:", "").equalsIgnoreCase("jigsaw")) {
+			Block currentBlock = e.getLocation().getWorld().getBlockAt(e.getLocation());
+			if (e.getBlockEntityTag() instanceof JigsawTag) {
+				JigsawTag tag = (JigsawTag) e.getBlockEntityTag();
+				if (tag.getFinalState().equalsIgnoreCase("simpleskyblock:ore")) {
+					if (config.getBoolean("GENERATE_ORES")) { // spice things up
+						double oreType = Math.random() * 100.0;
+						List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
+					    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
+					    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
+					    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
+					    	if (itemMat != null) {
+					    		oreType -= itemChance;
+					    		if (oreType < 0) {
+					    			currentBlock.setType(itemMat);
+					    			break;
+					    		}
+					    	} else {
+					    		this.getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
+					    	}
+					    }
+					    if (currentBlock.getType() == XMaterial.AIR.parseMaterial()) {
+					    	currentBlock.setType(XMaterial.COBBLESTONE.parseMaterial());
+					    }
+					} else {
+						currentBlock.setType(XMaterial.DIRT.parseMaterial());
+					}
+				} else if (tag.getFinalState().equalsIgnoreCase("simpleskyblock:chest")) {
+					currentBlock.setType(XMaterial.CHEST.parseMaterial());
+					Chest chest = (Chest) currentBlock.getState();
+				    Inventory chestinv = chest.getBlockInventory();
+				    List<String> CHEST_ITEMS = config.getStringList("CHEST_ITEMS");
+				    for(int i = 0; i < CHEST_ITEMS.size(); i++) {
+				    	Material itemMat = XMaterial.matchXMaterial(CHEST_ITEMS.get(i).split(":")[0]).get().parseMaterial();
+				    	int itemCnt = Integer.parseInt(CHEST_ITEMS.get(i).split(":")[1]);
+				    	if (itemMat != null) {
+				    		chestinv.addItem(new ItemStack(itemMat,itemCnt));
+				    	} else {
+				    		this.getLogger().severe("Unknown material \'" + CHEST_ITEMS.get(i).split(":")[0] + "\' at CHEST_ITEMS item " + (i + 1) + "!");
+				    	}
+				    }
+				    BlockData bd = currentBlock.getBlockData();
+					if (bd instanceof Directional) {
+						((Directional) bd).setFacing(BlockFace.valueOf(e.getPalette().getProperties().get("facing").toUpperCase()));
+					} else {
+						this.getLogger().warning("Unable to set direction of block!");
+					}
+					currentBlock.setBlockData(bd);
+				} else if (tag.getFinalState().equalsIgnoreCase("simpleskyblock:spawn")) {
+					spawnLocations.put(e.getBuildKey(), e.getLocation().clone().add(new Vector(0.5,0,0.5)));
+				}
+			}
+			e.setCancelled(true);
+		}
+	}
+	
     public void saveData() {
 		for (int i = 0; i < islands.size(); i++) {
 			islands.get(i).saveIsland();
@@ -2391,17 +2456,31 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 
 	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost, String schematic) {
 		
-		Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyWorld, config, getLogger());
-		iss.generate();
+		// Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyWorld, config, getLogger());
+		// iss.generate();
+		GStructure structure = new GStructure(this);
+		structure.read(new File(getDataFolder() + File.separator + "structures" + File.separator + schematic + ".nbt"));
+		loc.setWorld(skyWorld);
+		int buildKey = GStructure.getNextBuildKey();
+		structure.generate(loc);
 		
 		p.setFallDistance(0);
-		p.teleport(iss.getPlayerSpawn());
-	    
+		if (spawnLocations.containsKey(buildKey)) {
+			p.teleport(spawnLocations.get(buildKey));
+		} else {
+			p.teleport(loc);
+		}
+		
 	    // set values
 	    Location np1 = new Location(skyWorld,loc.getX()-(config.getInt("ISLAND_WIDTH")/2),0,loc.getZ()-(config.getInt("ISLAND_DEPTH")/2));
 	    Location np2 = new Location(skyWorld,loc.getX()+(config.getInt("ISLAND_WIDTH")/2),skyWorld.getMaxHeight(),loc.getZ()+(config.getInt("ISLAND_DEPTH")/2));
 	    SkyblockPlayer sp = getSkyblockPlayer(p);
-	    sp.setSkySpawn(iss.getPlayerSpawn());
+	    if (spawnLocations.containsKey(buildKey)) {
+	    	sp.setSkySpawn(spawnLocations.get(buildKey));
+	    	spawnLocations.remove(buildKey);
+	    } else {
+	    	sp.setSkySpawn(loc);
+	    }
 	    if (playerIsland == null) {
 		    Island newIs = new Island(np1, np2, 100, nextIslandKey, p, skyWorld, config.getInt("RESET_COUNT"), schematic, data, this);
 		    nextIslandKey++;
@@ -2437,9 +2516,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	public void generateNetherIsland(Location loc, String schematic) {
 		
-		Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyNether, config, getLogger());
-		iss.generate();
-		
+		// Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyNether, config, getLogger());
+		// iss.generate();
+		GStructure structure = new GStructure(this);
+		structure.read(new File(getDataFolder() + File.separator + "structures" + File.separator + schematic + ".nbt"));
+		loc.setWorld(skyNether);
+		structure.generate(loc);
 	}
 
 	public static void noCollideAddPlayer(Player p) {

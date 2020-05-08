@@ -43,9 +43,6 @@ public class LevelCalculator {
             	}
             }
         }, 0l, 2l);
-		while (toCheck.size() > 0) {
-			tick(toCheck.get(0));
-		}
 	}
 	
 	public int getPts() {
@@ -63,12 +60,12 @@ public class LevelCalculator {
 				// test if there are any blocks in column
 				if (c.getBlock(x, 0, z).getLightFromSky() != 15) {
 					// there are blocks in the column
-					emptyChunk = false;
 					int y = 0;
 					Block b;
 					do {
 						b = c.getBlock(x, y, z);
 						if (b.getType().isSolid()) {
+							emptyChunk = false;
 							if (points.containsKey(b.getType())) {
 								pts += points.get(b.getType());
 							} else {
