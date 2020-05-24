@@ -69,7 +69,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockFormEvent;
-import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -78,6 +77,7 @@ import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -89,6 +89,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.inventory.Inventory;
@@ -103,7 +104,6 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
-import org.spigotmc.event.entity.EntityMountEvent;
 
 import holiday.garet.GStructure.GStructure;
 import holiday.garet.GStructure.BlockEntityTag.JigsawTag;
@@ -1796,6 +1796,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     @EventHandler
+    public void onEntityDeath(EntityDeathEvent e) {
+    	
+    }
+    
+    @EventHandler
     public void onPlayerJoin(PlayerJoinEvent e) {
     	Player p = e.getPlayer();
     	SkyblockPlayer sp = getSkyblockPlayer(p);
@@ -1843,54 +1848,30 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     @EventHandler
-    public void onFromTo(BlockFromToEvent e)
-    {
-    	if ((e.getBlock().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getBlock().getLocation().getWorld() == skyNether))) {
-	    	BlockFace[] faces = new BlockFace[]
-		        {
-		            BlockFace.NORTH,
-		            BlockFace.EAST,
-		            BlockFace.SOUTH,
-		            BlockFace.WEST
-		        };
-	        Material type = e.getBlock().getType();
-	        if(type == XMaterial.LAVA.parseMaterial())
-	        {
-	            Block b = e.getToBlock();
-	            Material toid = b.getType();
-	            if (toid == XMaterial.AIR.parseMaterial()) {
-	            	for (BlockFace face : faces) {
-	            		Block r = b.getRelative(face, 1);
-	            		if (r.getType() == XMaterial.WATER.parseMaterial()) {
-	            			e.setCancelled(true);
-	            			if (config.getBoolean("GENERATE_ORES")) {
-								double oreType = Math.random() * 100.0;
-								List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
-							    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
-							    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
-							    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
-							    	if (itemMat != null) {
-							    		oreType -= itemChance;
-							    		if (oreType < 0) {
-							    			b.setType(itemMat);
-							    			break;
-							    		}
-							    	} else {
-							    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
-							    	}
-							    }
-	            			}
-						    if (b.getType() == XMaterial.AIR.parseMaterial()) {
-						    	b.setType(XMaterial.COBBLESTONE.parseMaterial());
-						    }
-						    
-							BlockFormEvent ne = new BlockFormEvent(b, b.getState());
-							Bukkit.getPluginManager().callEvent(ne);
-	            		}
-	            	}
-	            }
-	        }
-        }
+    public void onBlockForm(BlockFormEvent e) {
+    	if (e.getNewState().getType() == XMaterial.COBBLESTONE.parseMaterial()) {
+    		e.setCancelled(true);
+    		if (config.getBoolean("GENERATE_ORES")) {
+				double oreType = Math.random() * 100.0;
+				List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
+			    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
+			    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
+			    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
+			    	if (itemMat != null) {
+			    		oreType -= itemChance;
+			    		if (oreType < 0) {
+			    			e.getBlock().setType(itemMat);
+			    			break;
+			    		}
+			    	} else {
+			    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
+			    	}
+			    }
+			}
+		    if (e.getBlock().getType() == XMaterial.AIR.parseMaterial()) {
+		    	e.getBlock().setType(XMaterial.COBBLESTONE.parseMaterial());
+		    }
+    	}
     }
 
     @EventHandler
@@ -1936,11 +1917,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				}
 			}
 		}
-		if ((p.getWorld() == skyWorld || p.getWorld() == skyNether) && p.isFlying() && !(p.isOp() || p.hasPermission("skyblock.admin"))) {
+		if ((p.getWorld() == skyWorld || p.getWorld() == skyNether) && p.isFlying() && !(p.isOp() || p.hasPermission("skyblock.admin")) && !config.getBoolean("FLIGHT_EVERYWHERE")) {
 			if (sp.getIsland() != null) {
 				if (!sp.getIsland().inBounds(p.getLocation())) {
 					p.setFlying(false);
 				}
+			} else {
+				p.setFlying(false);
 			}
 		}
 		if (config.getBoolean("VOID_INSTANT_DEATH") && p.getLocation().getY() < -10 && sp != null) {
@@ -2097,6 +2080,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				playerIsland.messageAllMembers(ChatColor.GRAY + "[" + ChatColor.AQUA + "Island" + ChatColor.GRAY + "] " + ChatColor.WHITE + p.getName() + ChatColor.GRAY + ": " + ChatColor.RESET + e.getMessage());
 				getLogger().info("[" + playerIsland.getKey() + "] " + p.getName() + ": " + e.getMessage());
 			} else {
+				e.setCancelled(true);
 				p.sendMessage(ChatColor.RED + "You must have an island to chat. Use \"/shout\" to chat with the whole server.");
 			}
 		}
@@ -2117,8 +2101,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	}
 	
 	@EventHandler
-	public void onEntityMount(EntityMountEvent e) {
-		Entity ent = e.getEntity();
+	public void onVehicleEnter(VehicleEnterEvent e) {
+		Entity ent = e.getEntered();
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
 	    	SkyblockPlayer sp = getSkyblockPlayer(p);
@@ -2378,7 +2362,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	@EventHandler
 	public void onLevelCalculatorFinish(LevelCalculatorFinishEvent e) {
 		getLogger().info("Checked " + e.getCalculator().getCheckedCount() + " chunks and calculated " + e.getCalculator().getPts() + " pts");
-		e.getPlayer().sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf((int)Math.floor((e.getCalculator().getPts()/100)+(e.getCalculator().getCheckedCount()/10)))));
+		e.getPlayer().sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf((int)Math.floor((e.getCalculator().getPts()*config.getDouble("LEVEL_POINTS_MULTIPLIER"))+(e.getCalculator().getCheckedCount()*config.getDouble("LEVEL_SPREAD_MULTIPLIER"))))));
 	}
 	
 	@EventHandler

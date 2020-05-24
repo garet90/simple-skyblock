@@ -156,6 +156,11 @@ ISLAND_TYPES:
 
 # snowy is just an example of how you would add another island type
 
+# FLIGHT_EVERYWHERE determines whether players can fly at other's
+# islands, not just their own with the /fly command. Players with OP
+# or skyblock.admin automatically bypass this.
+FLIGHT_EVERYWHERE: false
+
 
 
 # +-----------------------------+
@@ -205,6 +210,14 @@ CHEST_ITEMS:
 # without actually being a member of the island.
 # Requires special permission "skyblock.trust"
 USE_TRUSTS: false
+
+# How much each point from the levelpoints.yml is
+# worth in terms of levels
+LEVEL_POINTS_MULTIPLIER: .01
+
+# How much each chunk the island spans is worth when
+# calculating levels
+LEVEL_SPREAD_MULTIPLIER: .1
 
 
 
