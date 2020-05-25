@@ -51,6 +51,7 @@ public class Island {
 	Boolean visitorsCanPortal = true;
 	Boolean nether;
 	String schematic;
+	int passiveMobs = 0;
 	Plugin plugin;
 
 	public Island(int _islandKey, World _world, FileConfiguration _data, Plugin _plugin) {
@@ -75,6 +76,7 @@ public class Island {
 			canReset = data.getBoolean("data.islands." + islandKey + ".canReset");
 			resetsLeft = data.getInt("data.islands." + islandKey + ".resetsLeft");
 			trusts = data.getStringList("data.islands." + islandKey + ".trusts");
+			passiveMobs = data.getInt("data.islands." + islandKey + ".passiveMobs");
 			if (trusts == null) {
 				trusts = new ArrayList<String>();
 			}
@@ -143,6 +145,7 @@ public class Island {
 		data.set("data.islands." + String.valueOf(islandKey) + ".nether", nether);
 		data.set("data.islands." + String.valueOf(islandKey) + ".resetsLeft", resetsLeft);
 		data.set("data.islands." + String.valueOf(islandKey) + ".trusts", trusts);
+		data.set("data.islands." + String.valueOf(islandKey) + ".passiveMobs", passiveMobs);
 	}
 	
 	public boolean hasPlayer(Player p) {
@@ -328,6 +331,14 @@ public class Island {
 	
 	public void setSchematic(String s) {
 		schematic = s;
+	}
+	
+	public int getPassiveMobs() {
+		return passiveMobs;
+	}
+	
+	public void setPassiveMobs(int pm) {
+		passiveMobs = pm;
 	}
 	
 }

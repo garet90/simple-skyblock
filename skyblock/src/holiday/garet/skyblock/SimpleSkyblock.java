@@ -47,6 +47,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.World.Environment;
 import org.bukkit.WorldCreator;
+import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
@@ -71,9 +72,11 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockFormEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
@@ -105,7 +108,6 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
-
 import holiday.garet.GStructure.GStructure;
 import holiday.garet.GStructure.BlockEntityTag.JigsawTag;
 import holiday.garet.GStructure.Event.StructurePaintEvent;
@@ -384,6 +386,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            }
 	        }, 1L);
     	}
+    	if (!(getServer().getVersion().contains("1.8") || getServer().getVersion().contains("1.9"))) {
+    		EntityBreedHandler breedHandler = new EntityBreedHandler(this);
+    		this.getServer().getPluginManager().registerEvents(breedHandler, this);
+    	}
     }
     
     public String getLanguage(String _key) {
@@ -426,7 +432,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     			SkyblockPlayer sp = getSkyblockPlayer(p);
             	if (args.length == 0) {
 	        		if (playerIsland == null) {
-	        			String islandType = "default";
+	        			String islandName = "default";
 	        			ConfigurationSection it = config.getConfigurationSection("ISLAND_TYPES");
 	        			if (it != null && it.getKeys(false).size() > 1) {
 	        				
@@ -465,11 +471,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        					i++;
 	        				}
 	        			} else {
-				            PlayerCreateIslandEvent e = new PlayerCreateIslandEvent(sp, p, nextIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+				            PlayerCreateIslandEvent e = new PlayerCreateIslandEvent(sp, p, nextIsland, config.getBoolean("RETAIN_MONEY"), islandName);
 				            Bukkit.getPluginManager().callEvent(e);
 				            if (!e.getCancelled()) {
 					            sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("generating-island"));
-				            	generateIsland(e.getIslandLocation(), p, null, e.getOverrideResetMoney(), islandType);
+				            	generateIsland(e.getIslandLocation(), p, null, e.getOverrideResetMoney(), it.getString(islandName + ".schematic"), islandName);
 				            }
 	        			}
 			            return true;
@@ -556,7 +562,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            		if (playerIsland.getLeader().toString().equalsIgnoreCase(p.getUniqueId().toString())) {
 		            		if (args.length == 2 && args[1].equalsIgnoreCase("confirm")) {
 		            			if (playerIsland.canReset() || config.getBoolean("INFINITE_RESETS")) {
-		            				String islandType = "default";
+		            				String islandName = "default";
 		    	        			ConfigurationSection it = config.getConfigurationSection("ISLAND_TYPES");
 		            				Double rcost = null;
 		            				if (config.isBoolean("RESET_COST")) {
@@ -635,9 +641,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 								            		} else {
 								            			vaultEconomy.withdrawPlayer(p, e.getResetCost());
 								            		}
-						            				generateIsland(e.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+						            				generateIsland(e.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), it.getString(islandName + ".schematic"), islandName);
 						            			} else {
-						            				generateIsland(e.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+						            				generateIsland(e.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), it.getString(islandName + ".schematic"), islandName);
 						            			}
 									            List<UUID> islandMembers = playerIsland.getMembers();
 									            for (int i = 0; i < islandMembers.size(); i++) {
@@ -1802,11 +1808,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     @EventHandler
-    public void onEntityDeath(EntityDeathEvent e) {
-    	
-    }
-    
-    @EventHandler
     public void onPlayerJoin(PlayerJoinEvent e) {
     	Player p = e.getPlayer();
     	SkyblockPlayer sp = getSkyblockPlayer(p);
@@ -2261,7 +2262,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            Bukkit.getPluginManager().callEvent(ev);
 		            if (!ev.getCancelled()) {
 			            e.getPlayer().sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("generating-island"));
-		            	generateIsland(ev.getIslandLocation(), e.getPlayer(), null, ev.getOverrideResetMoney(), islandType);
+		            	generateIsland(ev.getIslandLocation(), e.getPlayer(), null, ev.getOverrideResetMoney(), islandType, e.getData());
 		            	if (cost != 0) {
 			            	if (usingVault) {
 			            		vaultEconomy.withdrawPlayer(e.getPlayer(), cost);
@@ -2323,9 +2324,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            		} else {
 		            			vaultEconomy.withdrawPlayer(p, ev.getResetCost());
 		            		}
-            				generateIsland(ev.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+            				generateIsland(ev.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType, e.getData());
             			} else {
-            				generateIsland(ev.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType);
+            				generateIsland(ev.getLocation(), p, playerIsland, config.getBoolean("RETAIN_MONEY"), islandType, e.getData());
             			}
 			            List<UUID> islandMembers = playerIsland.getMembers();
 			            for (int i = 0; i < islandMembers.size(); i++) {
@@ -2431,6 +2432,42 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		}
 	}
 	
+	@EventHandler
+	public void onEntitySpawn(EntitySpawnEvent e) {
+		Entity ent = e.getEntity();
+		if (ent instanceof Animals) {
+			if (e.getLocation().getWorld() == skyWorld || e.getLocation().getWorld() == skyNether) {
+				for (int i = 0; i < players.size(); i++) {
+					Island is = players.get(i).getIsland();
+					if (is.inBounds(e.getLocation())) {
+						if (is.getPassiveMobs() >= config.getInt("ANIMAL_CAP")) {
+							e.setCancelled(true);
+						} else {
+							is.setPassiveMobs(is.getPassiveMobs() + 1);
+						}
+						return;
+					}
+				}
+			}
+		}
+	}
+    
+    @EventHandler
+    public void onEntityDeath(EntityDeathEvent e) {
+		Entity ent = e.getEntity();
+		if (ent instanceof Animals) {
+			if (ent.getLocation().getWorld() == skyWorld || ent.getLocation().getWorld() == skyNether) {
+				for (int i = 0; i < players.size(); i++) {
+					Island is = players.get(i).getIsland();
+					if (is.inBounds(ent.getLocation())) {
+						is.setPassiveMobs(is.getPassiveMobs() - 1);
+						return;
+					}
+				}
+			}
+		}
+    }
+	
     public void saveData() {
 		for (int i = 0; i < islands.size(); i++) {
 			islands.get(i).saveIsland();
@@ -2446,7 +2483,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	data.set("mvhookedworlds", mvHookedWorlds);
     }
 
-	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost, String schematic) {
+	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost, String schematic, String opName) {
 		
 		// Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyWorld, config, getLogger());
 		// iss.generate();
@@ -2455,6 +2492,27 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		loc.setWorld(skyWorld);
 		int buildKey = GStructure.getNextBuildKey();
 		structure.generate(loc);
+		
+		if (config.contains("ISLAND_TYPES." + opName + ".structures")) {
+			ConfigurationSection it = config.getConfigurationSection("ISLAND_TYPES." + opName + ".structures");
+			for (String key : it.getKeys(false)) {
+				GStructure str = new GStructure(this);
+				str.read(new File(getDataFolder() + File.separator + "structures" + File.separator + it.getString(key + ".schematic") + ".nbt"));
+				Location genLoc = loc.clone().add(it.getInt(key + ".x"), 0, it.getInt(key + ".z"));
+				str.generate(genLoc);
+				if (it.contains(key + ".biome")) {
+					if (Biome.valueOf(it.getString(key + ".biome").toUpperCase()) != null) {
+						for (int x = 0; x < str.getWidth(); x++) {
+							for (int z = 0; z < str.getDepth(); z++) {
+								skyWorld.setBiome(x + loc.getBlockX() + it.getInt(key + ".x"), z + loc.getBlockZ() + it.getInt(key + ".z"), Biome.valueOf(it.getString(key + ".biome").toUpperCase()));
+							}
+						}
+					} else {
+						getLogger().warning("Unknown biome: " + it.getString(key + ".biome"));
+					}
+				}
+			}
+		}
 		
 		p.setFallDistance(0);
 		if (spawnLocations.containsKey(buildKey)) {
@@ -2738,4 +2796,33 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	}
     	return null;
     }
+}
+
+class EntityBreedHandler implements Listener {
+	
+	private SimpleSkyblock s;
+	
+	public EntityBreedHandler(SimpleSkyblock ss) {
+		s = ss;
+	}
+	
+	@EventHandler
+	public void onEntityBreed(EntityBreedEvent e) {
+		Entity ent = e.getEntity();
+		if (ent instanceof Animals) {
+			if (ent.getLocation().getWorld() == s.skyWorld || ent.getLocation().getWorld() == s.skyNether) {
+				for (int i = 0; i < SimpleSkyblock.players.size(); i++) {
+					Island is = SimpleSkyblock.players.get(i).getIsland();
+					if (is.inBounds(ent.getLocation())) {
+						if (is.getPassiveMobs() >= s.config.getInt("ANIMAL_CAP")) {
+							e.setCancelled(true);
+						} else {
+							is.setPassiveMobs(is.getPassiveMobs() + 1);
+						}
+						return;
+					}
+				}
+			}
+		}
+	}
 }

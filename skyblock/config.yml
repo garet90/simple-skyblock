@@ -144,6 +144,18 @@ ISLAND_TYPES:
     # Not needed, just to show how you would require a
     # permission to use an island type
     schematic: default
+#   structures:
+#     # An example of how to add extra structures
+#     desert:
+#       # X offset
+#       x: 0
+#       # Z offset
+#       z: 100
+#       # The schematic to use
+#       schematic: desert
+#       # The biome to use (optional)
+#       biome: desert
+
 # snowy: 
 #   cost: 500
 #   item: SNOW_BLOCK
@@ -219,6 +231,11 @@ LEVEL_POINTS_MULTIPLIER: .01
 # calculating levels
 LEVEL_SPREAD_MULTIPLIER: .1
 
+# ANIMAL_CAP is the most passive mobs an island can have
+# on it at one time, as to not max out the server. This
+# affects passive mob spawning and breeding. (NOTE:
+# breeding cannot be bypassed on 1.9 and below)
+ANIMAL_CAP: 10
 
 
 # +------------------------------+
