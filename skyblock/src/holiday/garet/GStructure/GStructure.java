@@ -13,26 +13,17 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Banner;
 import org.bukkit.block.Beacon;
-import org.bukkit.block.Beehive;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BrewingStand;
-import org.bukkit.block.Campfire;
+import org.bukkit.block.Chest;
 import org.bukkit.block.CommandBlock;
-import org.bukkit.block.Container;
 import org.bukkit.block.Dispenser;
 import org.bukkit.block.Dropper;
-import org.bukkit.block.EnchantingTable;
-import org.bukkit.block.EndGateway;
 import org.bukkit.block.Furnace;
 import org.bukkit.block.Hopper;
 import org.bukkit.block.Jukebox;
-import org.bukkit.block.Lectern;
 import org.bukkit.block.Sign;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.Directional;
-import org.bukkit.block.data.Rotatable;
-import org.bukkit.block.data.type.Piston;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.plugin.Plugin;
@@ -255,288 +246,335 @@ public class GStructure {
 			World world = location.getWorld();
 			Block block = world.getBlockAt(location);
 			String material = palette.getName().split(":")[1];
-			block.setType(Material.matchMaterial(material));
-			if (nbt != null) {
-				switch (nbt.getId().replaceFirst("minecraft:", "")) {
-				case "banner":
-					if (true) {
-						BannerTag n = (BannerTag) nbt;
-						Banner b = (Banner) block.getState();
-						n.getPatterns().forEach((pattern) -> {
-							b.addPattern(pattern.get());
-						});
-						b.update();
-					}
-					break;
-				case "chest":
-				case "shulker_box":
-				case "barrel":
-					if (true) {
-						ChestTag n = (ChestTag) nbt;
-						Container c = (Container)block.getState();
-						if (n.getCustomName() != null && n.getCustomName() != "") {
-							c.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+			if (XMaterial.matchXMaterial(material).get().parseMaterial() != null) {
+				block.setType(XMaterial.matchXMaterial(material).get().parseMaterial());
+				if (nbt != null) {
+					switch (nbt.getId().replaceFirst("minecraft:", "")) {
+					case "banner":
+						if (true) {
+							BannerTag n = (BannerTag) nbt;
+							Banner b = (Banner) block.getState();
+							n.getPatterns().forEach((pattern) -> {
+								b.addPattern(pattern.get());
+							});
+							b.update();
 						}
-						c.setLock(n.getLock());
-						c.update();
-						/*if (n.getLootTable() != null && LootTables.valueOf(n.getLootTable()) != null) {
-							c.setLootTable(LootTables.valueOf(n.getLootTable()).getLootTable());
+						break;
+					case "chest":
+					case "shulker_box":
+					case "barrel":
+						if (true) {
+							ChestTag n = (ChestTag) nbt;
+							if (plugin.getServer().getVersion().contains("1.8") || plugin.getServer().getVersion().contains("1.9") || plugin.getServer().getVersion().contains("1.10") || plugin.getServer().getVersion().contains("1.11")) {
+								Chest c = (Chest)block.getState();
+								if (plugin.getServer().getVersion().contains("1.11")) {
+									if (n.getCustomName() != null && n.getCustomName() != "") {
+										c.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+									}
+									c.setLock(n.getLock());
+								}
+								c.update();
+								/*if (n.getLootTable() != null && LootTables.valueOf(n.getLootTable()) != null) {
+									c.setLootTable(LootTables.valueOf(n.getLootTable()).getLootTable());
+								}
+								TODO loot tables are beign wack.
+								*/
+								// TODO loottableseed
+								n.getItems().forEach((citem) -> {
+									c.getInventory().setItem(citem.getSlot(), citem.get(plugin));
+								});
+							} else {
+								org.bukkit.block.Container c = (org.bukkit.block.Container)block.getState();
+								if (n.getCustomName() != null && n.getCustomName() != "") {
+									c.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+								}
+								c.setLock(n.getLock());
+								c.update();
+								/*if (n.getLootTable() != null && LootTables.valueOf(n.getLootTable()) != null) {
+									c.setLootTable(LootTables.valueOf(n.getLootTable()).getLootTable());
+								}
+								TODO loot tables are beign wack.
+								*/
+								// TODO loottableseed
+								n.getItems().forEach((citem) -> {
+									c.getInventory().setItem(citem.getSlot(), citem.get(plugin));
+								});
+							}
 						}
-						TODO loot tables are beign wack.
-						*/
-						// TODO loottableseed
-						n.getItems().forEach((citem) -> {
-							c.getInventory().setItem(citem.getSlot(), citem.get(plugin));
-						});
-					}
-					break;
-				case "beacon":
-					if (true) {
-						BeaconTag n = (BeaconTag) nbt;
-						Beacon b = (Beacon) block.getState();
-						b.setPrimaryEffect(PotionEffectType.getById(n.getPrimary()));
-						b.setSecondaryEffect(PotionEffectType.getById(n.getSecondary()));
-						b.setLock(n.getLock());
-						b.update();
-					}
-					break;
-				case "beehive":
-					if (true) {
-						BeehiveTag n = (BeehiveTag) nbt;
-						Beehive b = (Beehive) block.getState();
-						b.setFlower(new Location(location.getWorld(), n.getFlowerPosX(), n.getFlowerPosY(), n.getFlowerPosZ()));
-						// TODO bees in hive
-						b.update();
-					}
-					break;
-				case "blast_furnace":
-				case "furnace":
-				case "smoker":
-					if (true) {
-						FurnaceTag n = (FurnaceTag) nbt;
-						Furnace f = (Furnace)block.getState();
-						if (n.getCustomName() != null && n.getCustomName() != "") {
-							f.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+						break;
+					case "beacon":
+						if (true) {
+							BeaconTag n = (BeaconTag) nbt;
+							Beacon b = (Beacon) block.getState();
+							if (!(plugin.getServer().getVersion().contains("1.8") || plugin.getServer().getVersion().contains("1.9") || plugin.getServer().getVersion().contains("1.10"))) {
+								b.setPrimaryEffect(PotionEffectType.getById(n.getPrimary()));
+								b.setSecondaryEffect(PotionEffectType.getById(n.getSecondary()));
+								b.setLock(n.getLock());
+							}
+							b.update();
 						}
-						f.setLock(n.getLock());
-						f.setBurnTime(n.getBurnTime());
-						f.setCookTime(n.getCookTime());
-						f.setCookTimeTotal(n.getCookTimeTotal());
-						f.update();
-						n.getItems().forEach((item) -> {
-							f.getInventory().setItem(item.getSlot(), item.get(plugin));
-						});
-					}
-					break;
-				case "brewing_stand":
-					if (true) {
-						BrewingStandTag n = (BrewingStandTag) nbt;
-						BrewingStand b = (BrewingStand) block.getState();
-						if (n.getCustomName() != null && n.getCustomName() != "") {
-							b.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+						break;
+					case "beehive":
+						if (plugin.getServer().getVersion().contains("1.15")) {
+							BeehiveTag n = (BeehiveTag) nbt;
+							org.bukkit.block.Beehive b = (org.bukkit.block.Beehive) block.getState();
+							b.setFlower(new Location(location.getWorld(), n.getFlowerPosX(), n.getFlowerPosY(), n.getFlowerPosZ()));
+							// TODO bees in hive
+							b.update();
 						}
-						b.setLock(n.getLock());
-						b.setBrewingTime(n.getBrewTime());
-						b.setFuelLevel(n.getFuel());
-						b.update();
-						n.getItems().forEach((item) -> {
-							b.getInventory().setItem(item.getSlot(), item.get(plugin));
-						});
-					}
-					break;
-				case "campfire": 
-					if (true) {
-						CampfireTag n = (CampfireTag) nbt;
-						Campfire c = (Campfire) block.getState();
-						for (int i = 0; i < n.getCookingTimes().length; i++) {
-							c.setCookTime(i, n.getCookingTimes()[i]);
+						break;
+					case "blast_furnace":
+					case "furnace":
+					case "smoker":
+						if (true) {
+							FurnaceTag n = (FurnaceTag) nbt;
+							Furnace f = (Furnace)block.getState();
+							if (!(plugin.getServer().getVersion().contains("1.8") || plugin.getServer().getVersion().contains("1.9") || plugin.getServer().getVersion().contains("1.10"))) {
+								if (n.getCustomName() != null && n.getCustomName() != "") {
+									f.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+								}
+								f.setLock(n.getLock());
+							}
+							f.setBurnTime(n.getBurnTime());
+							f.setCookTime(n.getCookTime());
+							if (plugin.getServer().getVersion().contains("1.14") || plugin.getServer().getVersion().contains("1.15")) {
+								f.setCookTimeTotal(n.getCookTimeTotal());
+							}
+							f.update();
+							n.getItems().forEach((item) -> {
+								f.getInventory().setItem(item.getSlot(), item.get(plugin));
+							});
 						}
-						for (int i = 0; i < n.getCookingTotalTimes().length; i++) {
-							c.setCookTimeTotal(i, n.getCookingTotalTimes()[i]);
+						break;
+					case "brewing_stand":
+						if (true) {
+							BrewingStandTag n = (BrewingStandTag) nbt;
+							BrewingStand b = (BrewingStand) block.getState();
+							if (!(plugin.getServer().getVersion().contains("1.8") || plugin.getServer().getVersion().contains("1.9") || plugin.getServer().getVersion().contains("1.10"))) {
+								if (n.getCustomName() != null && n.getCustomName() != "") {
+									b.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+								}
+								b.setLock(n.getLock());
+							}
+							b.setBrewingTime(n.getBrewTime());
+							if (!(plugin.getServer().getVersion().contains("1.8"))) {
+								b.setFuelLevel(n.getFuel());
+							}
+							b.update();
+							n.getItems().forEach((item) -> {
+								b.getInventory().setItem(item.getSlot(), item.get(plugin));
+							});
 						}
-						n.getItems().forEach((item) -> {
-							c.setItem(item.getSlot(), item.get(plugin));
-						});
-						c.update();
-					}
-					break;
-				case "cauldron":
-					if (true) {
-						@SuppressWarnings("unused")
-						CauldronTag n = (CauldronTag) nbt;
-						// TODO cauldrons
-					}
-					break;
-				case "command_block":
-					if (true) {
-						CommandBlockTag n = (CommandBlockTag) nbt;
-						CommandBlock c = (CommandBlock) block.getState();
-						if (n.getCustomName() != null && n.getCustomName() != "") {
-							c.setName(new JSONObject(n.getCustomName()).getString("text"));
+						break;
+					case "campfire": 
+						if (plugin.getServer().getVersion().contains("1.14") || plugin.getServer().getVersion().contains("1.15")) {
+							CampfireTag n = (CampfireTag) nbt;
+							org.bukkit.block.Campfire c = (org.bukkit.block.Campfire) block.getState();
+							for (int i = 0; i < n.getCookingTimes().length; i++) {
+								c.setCookTime(i, n.getCookingTimes()[i]);
+							}
+							for (int i = 0; i < n.getCookingTotalTimes().length; i++) {
+								c.setCookTimeTotal(i, n.getCookingTotalTimes()[i]);
+							}
+							n.getItems().forEach((item) -> {
+								c.setItem(item.getSlot(), item.get(plugin));
+							});
+							c.update();
 						}
-						c.setCommand(n.getCommand());
-						// TODO other command block stuff (PRIORITY: LOW)
-						c.update();
-					}
-					break;
-				case "dispenser":
-					if (true) {
-						DispenserTag n = (DispenserTag) nbt;
-						Dispenser d = (Dispenser) block.getState();
-						if (n.getCustomName() != null && n.getCustomName() != "") {
-							d.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+						break;
+					case "cauldron":
+						if (true) {
+							@SuppressWarnings("unused")
+							CauldronTag n = (CauldronTag) nbt;
+							// TODO cauldrons
 						}
-						d.setLock(n.getLock());
-						d.update();
-						n.getItems().forEach((item) -> {
-							d.getInventory().setItem(item.getSlot(), item.get(plugin));
-						});
-						// TODO loot tables
-					}
-					break;
-				case "dropper":
-					if (true) {
-						DispenserTag n = (DispenserTag) nbt;
-						Dropper d = (Dropper) block.getState();
-						if (n.getCustomName() != null && n.getCustomName() != "") {
-							d.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+						break;
+					case "command_block":
+						if (true) {
+							CommandBlockTag n = (CommandBlockTag) nbt;
+							CommandBlock c = (CommandBlock) block.getState();
+							if (n.getCustomName() != null && n.getCustomName() != "") {
+								c.setName(new JSONObject(n.getCustomName()).getString("text"));
+							}
+							c.setCommand(n.getCommand());
+							// TODO other command block stuff (PRIORITY: LOW)
+							c.update();
 						}
-						d.setLock(n.getLock());
-						d.update();
-						n.getItems().forEach((item) -> {
-							d.getInventory().setItem(item.getSlot(), item.get(plugin));
-						});
-						// TODO loot tables
-					}
-					break;
-				case "enchanting_table":
-					if (true) {
-						EnchantingTableTag n = (EnchantingTableTag) nbt;
-						EnchantingTable t = (EnchantingTable) block.getState();
-						if (n.getCustomName() != null && n.getCustomName() != "") {
-							t.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+						break;
+					case "dispenser":
+						if (true) {
+							DispenserTag n = (DispenserTag) nbt;
+							Dispenser d = (Dispenser) block.getState();
+							if (!(plugin.getServer().getVersion().contains("1.8") || plugin.getServer().getVersion().contains("1.9") || plugin.getServer().getVersion().contains("1.10"))) {
+								if (n.getCustomName() != null && n.getCustomName() != "") {
+									d.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+								}
+								d.setLock(n.getLock());
+							}
+							d.update();
+							n.getItems().forEach((item) -> {
+								d.getInventory().setItem(item.getSlot(), item.get(plugin));
+							});
+							// TODO loot tables
 						}
-						t.update();
-					}
-					break;
-				case "end_gateway":
-					if (true) {
-						EndGatewayTag n = (EndGatewayTag) nbt;
-						EndGateway g = (EndGateway) block.getState();
-						g.setAge(n.getAge());
-						g.setExactTeleport(n.getExactTeleportAsBoolean());
-						g.setExitLocation(new Location(null, n.getExitPortalX(), n.getExitPortalY(), n.getExitPortalZ()));
-						g.update();
-					}
-					break;
-				case "hopper":
-					if (true) {
-						HopperTag n = (HopperTag) nbt;
-						Hopper h = (Hopper) block.getState();
-						if (n.getCustomName() != null && n.getCustomName() != "") {
-							h.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+						break;
+					case "dropper":
+						if (true) {
+							DispenserTag n = (DispenserTag) nbt;
+							Dropper d = (Dropper) block.getState();
+							if (!(plugin.getServer().getVersion().contains("1.8") || plugin.getServer().getVersion().contains("1.9") || plugin.getServer().getVersion().contains("1.10"))) {
+								if (n.getCustomName() != null && n.getCustomName() != "") {
+									d.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+								}
+								d.setLock(n.getLock());
+							}
+							d.update();
+							n.getItems().forEach((item) -> {
+								d.getInventory().setItem(item.getSlot(), item.get(plugin));
+							});
+							// TODO loot tables
 						}
-						h.setLock(n.getLock());
-						h.update();
-						n.getItems().forEach((item) -> {
-							h.getInventory().setItem(item.getSlot(), item.get(plugin));
-						});
-						// TODO loot table
-					}
-					break;
-				case "jukebox":
-					if (true) {
-						JukeboxTag n = (JukeboxTag) nbt;
-						Jukebox j = (Jukebox) block.getState();
-						if (n.getRecordItem() != null) {
-							j.setRecord(n.getRecordItem().get(plugin));
+						break;
+					case "enchanting_table":
+						if (!(plugin.getServer().getVersion().contains("1.8") || plugin.getServer().getVersion().contains("1.9") || plugin.getServer().getVersion().contains("1.10"))) {
+							EnchantingTableTag n = (EnchantingTableTag) nbt;
+							org.bukkit.block.EnchantingTable t = (org.bukkit.block.EnchantingTable) block.getState();
+							if (n.getCustomName() != null && n.getCustomName() != "") {
+								t.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+							}
+							t.update();
 						}
-						j.update();
-					}
-					break;
-				case "lectern":
-					if (true) {
-						LecternTag n = (LecternTag) nbt;
-						Lectern l = (Lectern) block.getState();
-						l.getInventory().setItem(0, n.getBook().get(plugin));
-						l.setPage(n.getPage());
-					}
-					break;
-				// TODO mob spawners
-				case "piston":
-					if (true) {
-						PistonTag n = (PistonTag) nbt;
-						Piston p = (Piston) block.getState();
-						p.setExtended(n.getExtendingAsBoolean());
-						p.setFacing(BlockFace.values()[n.getFacing()]);
-						// TODO block state values
-					}
-					break;
-				case "sign":
-					if (true) {
-						SignTag n = (SignTag) nbt;
-						Sign s = (Sign) block.getState();
-						s.setColor(n.getColorAsDyeColor());
-						if (n.getText1() != null && n.getText1() != "") {
-							s.setLine(0, new JSONObject(n.getText1()).getString("text"));
+						break;
+					case "end_gateway":
+						if (!plugin.getServer().getVersion().contains("1.8")) {
+							EndGatewayTag n = (EndGatewayTag) nbt;
+							org.bukkit.block.EndGateway g = (org.bukkit.block.EndGateway) block.getState();
+							g.setAge(n.getAge());
+							g.setExactTeleport(n.getExactTeleportAsBoolean());
+							g.setExitLocation(new Location(null, n.getExitPortalX(), n.getExitPortalY(), n.getExitPortalZ()));
+							g.update();
 						}
-						if (n.getText2() != null && n.getText2() != "") {
-							s.setLine(1, new JSONObject(n.getText2()).getString("text"));
+						break;
+					case "hopper":
+						if (true) {
+							HopperTag n = (HopperTag) nbt;
+							Hopper h = (Hopper) block.getState();
+							if (!(plugin.getServer().getVersion().contains("1.8") || plugin.getServer().getVersion().contains("1.9") || plugin.getServer().getVersion().contains("1.10"))) {
+								if (n.getCustomName() != null && n.getCustomName() != "") {
+									h.setCustomName(new JSONObject(n.getCustomName()).getString("text"));
+								}
+								h.setLock(n.getLock());
+							}
+							h.update();
+							n.getItems().forEach((item) -> {
+								h.getInventory().setItem(item.getSlot(), item.get(plugin));
+							});
+							// TODO loot table
 						}
-						if (n.getText3() != null && n.getText3() != "") {
-							s.setLine(2, new JSONObject(n.getText3()).getString("text"));
+						break;
+					case "jukebox":
+						if (true) {
+							JukeboxTag n = (JukeboxTag) nbt;
+							Jukebox j = (Jukebox) block.getState();
+							if (n.getRecordItem() != null) {
+								j.setPlaying(n.getRecordItem().get(plugin).getType());
+								if (plugin.getServer().getVersion().contains("1.14") || plugin.getServer().getVersion().contains("1.15")) {
+									j.setRecord(n.getRecordItem().get(plugin));
+								}
+							}
+							j.update();
 						}
-						if (n.getText4() != null && n.getText4() != "") {
-							s.setLine(3, new JSONObject(n.getText4()).getString("text"));
+						break;
+					case "lectern":
+						if (plugin.getServer().getVersion().contains("1.14") || plugin.getServer().getVersion().contains("1.15")) {
+							LecternTag n = (LecternTag) nbt;
+							org.bukkit.block.Lectern l = (org.bukkit.block.Lectern) block.getState();
+							l.getInventory().setItem(0, n.getBook().get(plugin));
+							l.setPage(n.getPage());
 						}
-						s.update();
+						break;
+					// TODO mob spawners
+					case "piston":
+						if (plugin.getServer().getVersion().contains("1.13") || plugin.getServer().getVersion().contains("1.14") || plugin.getServer().getVersion().contains("1.15")) {
+							PistonTag n = (PistonTag) nbt;
+							org.bukkit.block.data.type.Piston p = (org.bukkit.block.data.type.Piston) block.getState();
+							p.setExtended(n.getExtendingAsBoolean());
+							p.setFacing(BlockFace.values()[n.getFacing()]);
+							// TODO block state values
+						}
+						break;
+					case "sign":
+						if (true) {
+							SignTag n = (SignTag) nbt;
+							Sign s = (Sign) block.getState();
+							if (plugin.getServer().getVersion().contains("1.14") || plugin.getServer().getVersion().contains("1.15")) {
+								s.setColor(n.getColorAsDyeColor());
+							}
+							if (n.getText1() != null && n.getText1() != "") {
+								s.setLine(0, new JSONObject(n.getText1()).getString("text"));
+							}
+							if (n.getText2() != null && n.getText2() != "") {
+								s.setLine(1, new JSONObject(n.getText2()).getString("text"));
+							}
+							if (n.getText3() != null && n.getText3() != "") {
+								s.setLine(2, new JSONObject(n.getText3()).getString("text"));
+							}
+							if (n.getText4() != null && n.getText4() != "") {
+								s.setLine(3, new JSONObject(n.getText4()).getString("text"));
+							}
+							s.update();
+						}
+						break;
+					// TODO skulltag
+					// TODO structureblock
 					}
-					break;
-				// TODO skulltag
-				// TODO structureblock
 				}
+				if (plugin.getServer().getVersion().contains("1.13") || plugin.getServer().getVersion().contains("1.14") || plugin.getServer().getVersion().contains("1.15")) {
+					org.bukkit.block.data.BlockData bd = block.getBlockData();
+					palette.getProperties().forEach((name, value) -> {
+						switch(name) {
+						case "facing":
+							if (bd instanceof org.bukkit.block.data.Directional) {
+								((org.bukkit.block.data.Directional) bd).setFacing(BlockFace.valueOf(value.toUpperCase()));
+							} else {
+								plugin.getLogger().warning("Unable to set direction of block!");
+							}
+							break;
+						case "rotation":
+							BlockFace f = BlockFace.SOUTH;
+							switch (value) {
+							case "0": f = BlockFace.SOUTH; break;
+							case "1": f = BlockFace.SOUTH_SOUTH_WEST; break;
+							case "2": f = BlockFace.SOUTH_WEST; break;
+							case "3": f = BlockFace.WEST_SOUTH_WEST; break;
+							case "4": f = BlockFace.WEST; break;
+							case "5": f = BlockFace.WEST_NORTH_WEST; break;
+							case "6": f = BlockFace.NORTH_WEST; break;
+							case "7": f = BlockFace.NORTH_NORTH_WEST; break;
+							case "8": f = BlockFace.NORTH; break;
+							case "9": f = BlockFace.NORTH_NORTH_EAST; break;
+							case "10": f = BlockFace.NORTH_EAST; break;
+							case "11": f = BlockFace.EAST_NORTH_EAST; break;
+							case "12": f = BlockFace.EAST; break;
+							case "13": f = BlockFace.EAST_SOUTH_EAST; break;
+							case "14": f = BlockFace.SOUTH_EAST; break;
+							case "15": f = BlockFace.EAST_SOUTH_EAST; break;
+							}
+							if (bd instanceof org.bukkit.block.data.Rotatable) {
+								((org.bukkit.block.data.Rotatable) bd).setRotation(f);
+							} else {
+								plugin.getLogger().warning("Unable to rotate block!");
+							}
+							break;
+						default:
+							block.setMetadata(name, new GMetaDataValue(value, plugin));
+						}
+					});
+					block.setBlockData(bd);
+				}
+			} else {
+				plugin.getLogger().warning("Unknown block in structure: " + material);
 			}
-			BlockData bd = block.getBlockData();
-			palette.getProperties().forEach((name, value) -> {
-				switch(name) {
-				case "facing":
-					if (bd instanceof Directional) {
-						((Directional) bd).setFacing(BlockFace.valueOf(value.toUpperCase()));
-					} else {
-						plugin.getLogger().warning("Unable to set direction of block!");
-					}
-					break;
-				case "rotation":
-					BlockFace f = BlockFace.SOUTH;
-					switch (value) {
-					case "0": f = BlockFace.SOUTH; break;
-					case "1": f = BlockFace.SOUTH_SOUTH_WEST; break;
-					case "2": f = BlockFace.SOUTH_WEST; break;
-					case "3": f = BlockFace.WEST_SOUTH_WEST; break;
-					case "4": f = BlockFace.WEST; break;
-					case "5": f = BlockFace.WEST_NORTH_WEST; break;
-					case "6": f = BlockFace.NORTH_WEST; break;
-					case "7": f = BlockFace.NORTH_NORTH_WEST; break;
-					case "8": f = BlockFace.NORTH; break;
-					case "9": f = BlockFace.NORTH_NORTH_EAST; break;
-					case "10": f = BlockFace.NORTH_EAST; break;
-					case "11": f = BlockFace.EAST_NORTH_EAST; break;
-					case "12": f = BlockFace.EAST; break;
-					case "13": f = BlockFace.EAST_SOUTH_EAST; break;
-					case "14": f = BlockFace.SOUTH_EAST; break;
-					case "15": f = BlockFace.EAST_SOUTH_EAST; break;
-					}
-					if (bd instanceof Rotatable) {
-						((Rotatable) bd).setRotation(f);
-					} else {
-						plugin.getLogger().warning("Unable to rotate block!");
-					}
-					break;
-				default:
-					block.setMetadata(name, new GMetaDataValue(value, plugin));
-				}
-			});
-			block.setBlockData(bd);
 		}
 	}
 	
@@ -544,23 +582,33 @@ public class GStructure {
 		EntityType entityType = EntityType.valueOf(entityData.getId().replaceFirst("minecraft:", "").toUpperCase());
 		Entity entity = location.getWorld().spawnEntity(location, entityType);
 		entity.setVelocity(new Vector(entityData.getDX(), entityData.getDY(), entityData.getDZ()));
-		entity.setRotation(entityData.getYaw(), entityData.getPitch());
+		if (plugin.getServer().getVersion().contains("1.14") || plugin.getServer().getVersion().contains("1.15")) {
+			entity.setRotation(entityData.getYaw(), entityData.getPitch());
+		}
 		entity.setFallDistance(entityData.getFallDistance());
 		entity.setFireTicks(entityData.getFire());
-		entity.setInvulnerable(entityData.getInvulnerableAsBoolean());
-		entity.setPortalCooldown(entityData.getPortalCooldown());
+		if (!plugin.getServer().getVersion().contains("1.8")) {
+			entity.setInvulnerable(entityData.getInvulnerableAsBoolean());
+			entity.setGlowing(entityData.getGlowingAsBoolean());
+			if (!plugin.getServer().getVersion().contains("1.9")) {
+				entity.setPortalCooldown(entityData.getPortalCooldown());
+				entity.setSilent(entityData.getSilentAsBoolean());
+				if (!plugin.getServer().getVersion().contains("1.10")) {
+					List<String> tags = entityData.getTags();
+					for (int i = 0; i < tags.size(); i++) {
+						entity.addScoreboardTag(tags.get(i));
+					}
+					if (!plugin.getServer().getVersion().contains("1.11")) {
+						List<GEntityData> passengers = entityData.getPassengers();
+						for (int i = 0; i < passengers.size(); i++) {
+							entity.addPassenger(summonEntity(location, passengers.get(i)));
+						}
+					}
+				}
+			}
+		}
 		entity.setCustomName(entityData.getCustomName());
 		entity.setCustomNameVisible(entityData.getCustomNameVisibleAsBoolean());
-		entity.setSilent(entityData.getSilentAsBoolean());
-		entity.setGlowing(entityData.getGlowingAsBoolean());
-		List<GEntityData> passengers = entityData.getPassengers();
-		for (int i = 0; i < passengers.size(); i++) {
-			entity.addPassenger(summonEntity(location, passengers.get(i)));
-		}
-		List<String> tags = entityData.getTags();
-		for (int i = 0; i < tags.size(); i++) {
-			entity.addScoreboardTag(tags.get(i));
-		}
 		return entity;
 	}
 }

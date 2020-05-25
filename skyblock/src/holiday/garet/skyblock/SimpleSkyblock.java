@@ -58,6 +58,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Animals;
+import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -1718,6 +1719,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            	}
 	            } else {
 	            	Player p = (Player)edbeEvent.getDamager();
+	            	if (p == null && edbeEvent.getDamager() instanceof Arrow) {
+	            		if ((Arrow)edbeEvent.getDamager() instanceof Arrow) {
+		            		p = (Player)((Arrow)edbeEvent.getDamager()).getShooter();
+	            		}
+	            	}
 	            	Island playerIsland = getPlayerIsland(p);
 	            	if (p != null) {
 	            		SkyblockPlayer sp = getSkyblockPlayer(p);
@@ -1725,7 +1731,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            		// make it so people cant hurt mobs on other people's islands
 		            		e.setCancelled(true);
 		            	} else {
-		            		if (e.getEntity() instanceof LivingEntity && config.getBoolean("USE_ECONOMY")) {
+		            		if ((e.getEntity() instanceof LivingEntity || e.getEntity() instanceof Arrow) && config.getBoolean("USE_ECONOMY")) {
 			            		if (edbeEvent.getDamage() >= ((LivingEntity)e.getEntity()).getHealth()) {
 			            			double getMoney = 0;
 			            			List<String> KILL_MONEY = config.getStringList("KILL_MONEY");
@@ -2408,13 +2414,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				    		this.getLogger().severe("Unknown material \'" + CHEST_ITEMS.get(i).split(":")[0] + "\' at CHEST_ITEMS item " + (i + 1) + "!");
 				    	}
 				    }
-				    BlockData bd = currentBlock.getBlockData();
-					if (bd instanceof Directional) {
-						((Directional) bd).setFacing(BlockFace.valueOf(e.getPalette().getProperties().get("facing").toUpperCase()));
-					} else {
-						this.getLogger().warning("Unable to set direction of block!");
+				    if (getServer().getVersion().contains("1.13") || getServer().getVersion().contains("1.14") || getServer().getVersion().contains("1.15")) {
+					    BlockData bd = currentBlock.getBlockData();
+						if (bd instanceof Directional) {
+							((Directional) bd).setFacing(BlockFace.valueOf(e.getPalette().getProperties().get("facing").toUpperCase()));
+						} else {
+							this.getLogger().warning("Unable to set direction of block!");
+						}
+						currentBlock.setBlockData(bd);
 					}
-					currentBlock.setBlockData(bd);
 				} else if (tag.getFinalState().equalsIgnoreCase("simpleskyblock:spawn")) {
 					spawnLocations.put(e.getBuildKey(), e.getLocation().clone().add(new Vector(0.5,0,0.5)));
 				}
