@@ -95,12 +95,18 @@ LIMIT_Z: 29990000
 # +------------------------------+
 
 # CHAT_PREFIX is the "name tag" for SimpleSkyblock when it
-# is speaking in the chat. Use '$' for color codes.
-CHAT_PREFIX: '$7[$bSKYBLOCK$7] $r'
+# is speaking in the chat. Use '&' for color codes.
+CHAT_PREFIX: '&7[&bSKYBLOCK&7] &r'
 
 # VOID_INSTANT_DEATH toggles if players die instantly in the
 # void instead of slowly losing health.
 VOID_INSTANT_DEATH: true
+
+# VOID_INSTAND_DEATH_WORLDS defines which worlds to have
+# players instantly die in the void. Using * will apply
+# void instant death to all worlds.
+VOID_INSTANT_DEATH_WORLDS:
+- '*'
 
 # DISABLE_PLAYER_COLLISIONS toggles player collisions. This
 # is active for the skyworld and the nether counterpart
@@ -131,9 +137,73 @@ INFINITE_RESETS: false
 # times the player will be able to reset their island.
 RESET_COUNT: 3
 
+# RESET_COST is the cost of each reset. This can be
+# enabled or set to false. Enabling it would look like
+# the following:
+# RESET_COST:
+# - 30
+# - 40
+# - 50
+# Enabling RESET_COST will allow players to keep money
+# accross resets.
+RESET_COST: false
+
+# Enabling RETAIN_MONEY will have users keep their money
+# after resetting or generating a new island.
+RETAIN_MONEY: false
+
 # USE_NETHER determines whether to allow players to have a
 # nether island.
 USE_NETHER: true
+
+# ISLAND_TYPES defines which types of islands players can
+# choose to start out with.
+ISLAND_TYPES: 
+  default: 
+    cost: 0
+    item: GRASS_BLOCK
+    lore: 
+      - "&r&7The default island."
+      - "&r&7Has a chest, a tree, and some dirt."
+    # The item, name, and lore are only needed if you
+    # have multiple for the GUI
+    
+    # The nether schematic will be named "name_nether", so
+    # default's nether schematic is default_nether in the
+    # structures folder
+    name: "&2Default"
+    permission: skyblock.island
+    # Not needed, just to show how you would require a
+    # permission to use an island type
+    schematic: default
+#   structures:
+#     # An example of how to add extra structures
+#     desert:
+#       # X offset
+#       x: 0
+#       # Z offset
+#       z: 100
+#       # The schematic to use
+#       schematic: desert
+#       # The biome to use (optional)
+#       biome: desert
+
+# snowy: 
+#   cost: 500
+#   item: SNOW_BLOCK
+#   lore: 
+#     - "&r&7Be careful, it's cold!"
+#     - "&r&7Basically just snow, not gonna lie."
+#   name: "&fSnowy"
+#   permission: skyblock.snowy
+#   schematic: snowy
+
+# snowy is just an example of how you would add another island type
+
+# FLIGHT_EVERYWHERE determines whether players can fly at other's
+# islands, not just their own with the /fly command. Players with OP
+# or skyblock.admin automatically bypass this.
+FLIGHT_EVERYWHERE: false
 
 
 
@@ -179,32 +249,25 @@ CHEST_ITEMS:
 - CACTUS:1
 - COBBLESTONE:16
 
-# LEVEL_POINTS are the points which you players get
-# added towards their islands based on each block
-# placed, destroyed, or generated.
-# The island level is calculated using the following
-# formula:
-# l = sqrt(p)-9
-# where p is the amount of points an island has. Each
-# island starts with 100 points by default.
-# All other blocks not listed are calculated using
-# the value of 'Default'.
-LEVEL_PTS:
-- Default:1
-- COBBLESTONE:0.1
-- SAPLING:50
-- DIAMOND_BLOCK:1000
-- EMERALD_BLOCK:750
-- IRON_BLOCK:100
-- REDSTONE_BLOCK:50
-- OBSIDIAN:75
-
 # USE_TRUSTS determines whether islands can "trust"
 # players to break blocks, use chests, kill mobs, etc
 # without actually being a member of the island.
 # Requires special permission "skyblock.trust"
 USE_TRUSTS: false
 
+# How much each point from the levelpoints.yml is
+# worth in terms of levels
+LEVEL_POINTS_MULTIPLIER: .01
+
+# How much each chunk the island spans is worth when
+# calculating levels
+LEVEL_SPREAD_MULTIPLIER: .1
+
+# ANIMAL_CAP is the most passive mobs an island can have
+# on it at one time, as to not max out the server. This
+# affects passive mob spawning and breeding. (NOTE:
+# breeding cannot be bypassed on 1.9 and below)
+ANIMAL_CAP: 10
 
 
 # +------------------------------+
@@ -290,5 +353,5 @@ SOUL_SAND: true
 # You survived! You made it through the entire
 # config! Good job, now don't edit this line, or
 # it might do some funky stuff.
-config-version: 1.3.6
+config-version: 1.4.0
   ```
