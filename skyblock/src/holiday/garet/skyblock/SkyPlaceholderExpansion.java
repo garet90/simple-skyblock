@@ -137,18 +137,6 @@ public class SkyPlaceholderExpansion extends PlaceholderExpansion {
             return String.valueOf(is.canReset());
         }
         
-        if(identifier.equals("canvisit")) {
-        	return String.valueOf(is.allowsVisitors());
-        }
-        
-        if(identifier.equals("canportal")) {
-        	return String.valueOf(is.visitorsCanPortal());
-        }
-        
-        if(identifier.equals("canridemobs")) {
-        	return String.valueOf(is.visitorsCanRideMobs());
-        }
-        
         if(identifier.equals("leader")) {
         	return String.valueOf(is.getLeader());
         }

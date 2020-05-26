@@ -65,6 +65,8 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Sheep;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -84,6 +86,7 @@ import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -132,11 +135,11 @@ import holiday.garet.skyblock.event.PlayerTradeOpenEvent;
 import holiday.garet.skyblock.event.PlayerTradeRequestEvent;
 import holiday.garet.skyblock.event.PlayerTrustAddEvent;
 import holiday.garet.skyblock.event.PlayerTrustRemoveEvent;
-import holiday.garet.skyblock.event.PlayerUpdateIslandSettingEvent;
 import holiday.garet.skyblock.event.PlayerVisitIslandEvent;
 import holiday.garet.skyblock.gui.GUI;
 import holiday.garet.skyblock.island.Island;
 import holiday.garet.skyblock.island.IslandInvite;
+import holiday.garet.skyblock.island.IslandLevel;
 import holiday.garet.skyblock.island.SkyblockPlayer;
 import holiday.garet.skyblock.world.Generator;
 import holiday.garet.skyblock.world.tools.LevelCalculator;
@@ -155,6 +158,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	List<IslandInvite> islandInvites = new ArrayList<IslandInvite>();
 	
 	public HashMap<Integer, Location> spawnLocations = new HashMap<Integer, Location>();
+	
+	public static List<IslandLevel> topIslands = new ArrayList<IslandLevel>(10);
 	
 	int nextIslandKey = 0;
 	
@@ -390,6 +395,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		EntityBreedHandler breedHandler = new EntityBreedHandler(this);
     		this.getServer().getPluginManager().registerEvents(breedHandler, this);
     	}
+    	
+    	if (data.contains("data.topIslands")) {
+    		for (int i = 0; i < 10; i++) {
+    			if (data.contains("data.topIslands." + i)) {
+    				IslandLevel il = new IslandLevel(data.getString("data.topIslands." + i + ".name"), data.getInt("data.topIslands." + i + ".level"));
+    				topIslands.add(il);
+    			}
+    		}
+    	}
     }
     
     public String getLanguage(String _key) {
@@ -495,7 +509,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        		}
             	} else if (args[0].equalsIgnoreCase("help")) {
             		if (args.length > 1 && args[1].equalsIgnoreCase("2")) {
-                		sender.sendMessage(ChatColor.GREEN + "Island Commands (2/2)" + ChatColor.GRAY + ": ");
+                		sender.sendMessage(ChatColor.GREEN + "Island Commands (2/3)" + ChatColor.GRAY + ": ");
                 		sender.sendMessage(ChatColor.GRAY + "usage: /is [args]\n");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is join <player>" + ChatColor.RESET + ": join a player\'s island.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is leave" + ChatColor.RESET + ": leave a co-op island.");
@@ -504,15 +518,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is makeleader <player>" + ChatColor.RESET + ": make another player leader of the island.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is level" + ChatColor.RESET + ": check what level your island is.");
             			return true;
+            		} else if (args.length > 1 && args[1].equalsIgnoreCase("3")) {
+                		sender.sendMessage(ChatColor.GREEN + "Island Commands (3/3)" + ChatColor.GRAY + ": ");
+                		sender.sendMessage(ChatColor.GRAY + "usage: /is [args]\n");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is top" + ChatColor.RESET + ": display the top islands on the server.");
+	            		return true;
             		} else {
-                		sender.sendMessage(ChatColor.GREEN + "Island Commands (1/2)" + ChatColor.GRAY + ": ");
+                		sender.sendMessage(ChatColor.GREEN + "Island Commands (1/3)" + ChatColor.GRAY + ": ");
                 		sender.sendMessage(ChatColor.GRAY + "usage: /is [args]\n");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is help [n]" + ChatColor.RESET + ": view page [n] of /island help.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is home" + ChatColor.RESET + ": teleports you to your island home.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is sethome" + ChatColor.RESET + ": sets your island\'s home location.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is reset" + ChatColor.RESET + ": resets your island.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is visit <player>" + ChatColor.RESET + ": visit another player\'s island.");
-	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is settings <setting | list> [true | false]" + ChatColor.RESET + ": change various island settings.");
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is settings" + ChatColor.RESET + ": change various island visitor settings.");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is invite <player>" + ChatColor.RESET + ": invite a player to join your island.");
 	            		if (config.getBoolean("USE_TRUSTS")) {
 		            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is trust <add | remove> <player>" + ChatColor.RESET + ": trust a player as if they were a member of your island.");
@@ -729,7 +748,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			}
             			Boolean allowsVisitors = false;
             			if (sz.getIsland() != null) {
-            				allowsVisitors = sz.getIsland().allowsVisitors();
+            				allowsVisitors = sz.getIsland().getSetting("allowVisitors");
             			}
             			if (playerIsland != null && sz.getIsland() == playerIsland) {
             				sender.sendMessage(ChatColor.RED + getLanguage("visit-own-island"));
@@ -763,108 +782,329 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             	} else if (args[0].equalsIgnoreCase("settings")) {
             		if (playerIsland != null) {
 	            		if (playerIsland.getLeader().toString().equalsIgnoreCase(p.getUniqueId().toString())) {
-		            		if (args.length > 1) {
-			            		if (args[1].equalsIgnoreCase("list")) {
-			            			ChatColor allowVisitors = ChatColor.RED;
-			            			if (playerIsland.allowsVisitors()) {
-			            				allowVisitors = ChatColor.GREEN;
-			            			}
-			            			ChatColor visitorsCanRideMobs = ChatColor.RED;
-			            			if (playerIsland.visitorsCanRideMobs()) {
-			            				visitorsCanRideMobs = ChatColor.GREEN;
-			            			}
-			            			ChatColor visitorsCanPortal = ChatColor.RED;
-			            			if (playerIsland.visitorsCanPortal()) {
-			            				visitorsCanPortal = ChatColor.GREEN;
-			            			}
-			            			sender.sendMessage(getLanguage("settings") + allowVisitors + "allow-visitors" + ChatColor.RESET + ", " + visitorsCanRideMobs + "visitors-can-ride-mobs" + ChatColor.RESET + ", " + visitorsCanPortal + "visitors-can-portal");
-			            			return true;
-			            		} else if (args[1].equalsIgnoreCase("allow-visitors")) {
-			            			if (args.length > 2) {
-			            				Boolean val = null;
-			            				if (args[2].equalsIgnoreCase("true")) {
-			            					val = true;
-			            				} else if (args[2].equalsIgnoreCase("false")) {
-			            					val = false;
-			            				}
-		            					PlayerUpdateIslandSettingEvent e = new PlayerUpdateIslandSettingEvent(p, sp, playerIsland, args[1], val);
-		            					Bukkit.getPluginManager().callEvent(e);
-		            					if (!e.getCancelled()) {
-				            				if (e.getValue() == true) {
-				            					playerIsland.setAllowsVisitors(e.getValue());
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-true").replace("{setting}", "allow-visitors"));
-				            				} else if (e.getValue() == false) {
-				            					playerIsland.setAllowsVisitors(e.getValue());
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-false").replace("{setting}", "allow-visitors"));
-				            				} else {
-					                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
-				            				}
-		            					}
-			            				return true;
-			            			} else {
-			                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
-			                			return true;
-			            			}
-			            		} else if (args[1].equalsIgnoreCase("visitors-can-ride-mobs")) {
-			            			if (args.length > 2) {
-			            				Boolean val = null;
-			            				if (args[2].equalsIgnoreCase("true")) {
-			            					val = true;
-			            				} else if (args[2].equalsIgnoreCase("false")) {
-			            					val = false;
-			            				}
-		            					PlayerUpdateIslandSettingEvent e = new PlayerUpdateIslandSettingEvent(p, sp, playerIsland, args[1], val);
-		            					Bukkit.getPluginManager().callEvent(e);
-		            					if (!e.getCancelled()) {
-				            				if (e.getValue() == true) {
-				            					playerIsland.setVisitorsCanRideMobs(true);
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-true").replace("{setting}", "visitors-can-ride-mobs"));
-				            				} else if (e.getValue() == false) {
-				            					playerIsland.setVisitorsCanRideMobs(false);
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-false").replace("{setting}", "visitors-can-ride-mobs"));
-				            				} else {
-					                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
-				            				}
-		            					}
-			            				return true;
-			            			} else {
-			                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
-			                			return true;
-			            			}
-			            		} else if (args[1].equalsIgnoreCase("visitors-can-portal")) {
-			            			if (args.length > 2) {
-			            				Boolean val = null;
-			            				if (args[2].equalsIgnoreCase("true")) {
-			            					val = true;
-			            				} else if (args[2].equalsIgnoreCase("false")) {
-			            					val = false;
-			            				}
-		            					PlayerUpdateIslandSettingEvent e = new PlayerUpdateIslandSettingEvent(p, sp, playerIsland, args[1], val);
-		            					Bukkit.getPluginManager().callEvent(e);
-		            					if (!e.getCancelled()) {
-				            				if (e.getValue() == true) {
-				            					playerIsland.setVisitorsCanPortal(true);
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-true").replace("{setting}", "visitors-can-portal"));
-				            				} else if (e.getValue() == false) {
-				            					playerIsland.setVisitorsCanPortal(false);
-				            					sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("settings-set-to-false").replace("{setting}", "visitors-can-portal"));
-				            				} else {
-					                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
-				            				}
-		            					}
-			            				return true;
-			            			} else {
-			                			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
-			                			return true;
-			            			}
-			            		} else {
-		                			sender.sendMessage(ChatColor.RED + getLanguage("setting-not-found"));
-		                			return true;
-			            		}
-		            		} else {
-		            			sender.sendMessage(ChatColor.RED + getLanguage("settings-usage"));
-		            			return true;
-		            		}
+	            			GUI g = new GUI(getLanguage("settings-title"), p, 27, 2);
+        					this.getServer().getPluginManager().registerEvents(g, this);
+	            			int i = 0;
+	            			ItemStack item;
+	            			if (XMaterial.GRASS_PATH.parseMaterial() != null) {
+	            				item = new ItemStack(XMaterial.GRASS_PATH.parseMaterial(), 1);
+	            			} else {
+	            				item = new ItemStack(XMaterial.GRASS_BLOCK.parseMaterial(), 1);
+	            			}
+	            			ItemMeta itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Allow Visitors");
+	            			List<String> lore = new ArrayList<String>(1);
+	            			lore.add("");
+	            			if (playerIsland.getSetting("allowVisitors")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "allowVisitors");
+	            			
+	            			item = new ItemStack(XMaterial.SADDLE.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Ride Mobs");
+	            			if (playerIsland.getSetting("rideMobs")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "rideMobs");
+	            			
+	            			item = new ItemStack(XMaterial.NETHERRACK.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Portals");
+	            			if (playerIsland.getSetting("usePortals")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "usePortals");
+	            			
+	            			item = XMaterial.IRON_DOOR.parseItem();
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Doors");
+	            			if (playerIsland.getSetting("useDoors")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useDoors");
+
+	            			item = new ItemStack(XMaterial.OAK_TRAPDOOR.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Trapdoors");
+	            			if (playerIsland.getSetting("useTrapdoors")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useTrapdoors");
+	            			
+	            			item = new ItemStack(XMaterial.OAK_FENCE_GATE.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Fence Gates");
+	            			if (playerIsland.getSetting("useFenceGates")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useFenceGates");
+	            			
+	            			item = new ItemStack(XMaterial.ANVIL.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Anvils");
+	            			if (playerIsland.getSetting("useAnvils")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useAnvils");
+	            			
+	            			item = new ItemStack(XMaterial.CRAFTING_TABLE.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Crafting Tables");
+	            			if (playerIsland.getSetting("useCraftingTables")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useCraftingTables");
+	            			
+	            			item = new ItemStack(XMaterial.FURNACE.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Furnaces");
+	            			if (playerIsland.getSetting("useFurnaces")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useFurnaces");
+	            			
+	            			item = new ItemStack(XMaterial.BLAZE_ROD.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Brewing Stands");
+	            			if (playerIsland.getSetting("useBrewingStands")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useBrewingStands");
+	            			
+	            			item = new ItemStack(XMaterial.ENCHANTING_TABLE.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Enchanting Tables");
+	            			if (playerIsland.getSetting("useEnchantingTables")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useEnchantingTables");
+	            			
+	            			item = new ItemStack(XMaterial.JUKEBOX.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Jukeboxes");
+	            			if (playerIsland.getSetting("useJukeboxes")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useJukeboxes");
+	            			
+	            			item = new ItemStack(XMaterial.BEACON.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Beacons");
+	            			if (playerIsland.getSetting("useBeacons")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useBeacons");
+	            			
+	            			item = new ItemStack(XMaterial.CHEST.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Chests");
+	            			if (playerIsland.getSetting("useChests")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useChests");
+	            			
+	            			item = new ItemStack(XMaterial.TRAPPED_CHEST.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Trapped Chests");
+	            			if (playerIsland.getSetting("useTrappedChests")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useTrappedChests");
+	            			
+	            			item = new ItemStack(XMaterial.ENDER_CHEST.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Ender Chests");
+	            			if (playerIsland.getSetting("useEnderChests")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useEnderChests");
+	            			
+	            			item = new ItemStack(XMaterial.RED_WOOL.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Beds");
+	            			if (playerIsland.getSetting("useBeds")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useBeds");
+	            			
+	            			item = new ItemStack(XMaterial.EMERALD.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Trade With Villagers");
+	            			if (playerIsland.getSetting("tradeWithVillagers")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "tradeWithVillagers");
+	            			
+	            			item = new ItemStack(XMaterial.STONE_BUTTON.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Buttons and Pressure Plates");
+	            			if (playerIsland.getSetting("buttonsAndPressurePlates")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "buttonsAndPressurePlates");
+	            			
+	            			item = new ItemStack(XMaterial.DIAMOND.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Drop Items");
+	            			if (playerIsland.getSetting("dropItems")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "dropItems");
+	            			
+	            			item = new ItemStack(XMaterial.IRON_INGOT.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Pickup Items");
+	            			if (playerIsland.getSetting("pickupItems")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "pickupItems");
+	            			
+	            			item = new ItemStack(XMaterial.EGG.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Throw Eggs");
+	            			if (playerIsland.getSetting("throwEggs")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "throwEggs");
+	            			
+	            			item = new ItemStack(XMaterial.ENDER_PEARL.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Use Ender Pearls");
+	            			if (playerIsland.getSetting("useEnderPearls")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "useEnderPearls");
+	            			
+	            			item = new ItemStack(XMaterial.WHEAT.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Breed Animals");
+	            			if (playerIsland.getSetting("breedAnimals")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "breedAnimals");
+	            			
+	            			item = new ItemStack(XMaterial.SHEARS.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Shear Sheep");
+	            			if (playerIsland.getSetting("shearSheep")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "shearSheep");
+	            			
+	            			item = new ItemStack(XMaterial.WOODEN_SWORD.parseMaterial(), 1);
+	            			itemMeta = item.getItemMeta();
+	            			itemMeta.setDisplayName(ChatColor.RESET + "" + ChatColor.GRAY + "Kill Animals");
+	            			if (playerIsland.getSetting("killAnimals")) {
+	            				lore.set(0, ChatColor.GREEN + "Allowed");
+	            			} else {
+	            				lore.set(0, ChatColor.RED + "Disallowed");
+	            			}
+	            			itemMeta.setLore(lore);
+	            			item.setItemMeta(itemMeta);
+	            			g.setSlot(i++, item, "killAnimals");
+	            			
+	            			return true;
 	            		} else {
 	            			sender.sendMessage(ChatColor.RED + getLanguage("leader-only"));
 	            			return true;
@@ -1127,6 +1367,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
             		}
+            	} else if (args[0].equalsIgnoreCase("top")) {
+            		sender.sendMessage(ChatColor.GREEN + "Top Islands" + ChatColor.GRAY + ":");
+            		for (int i = 0; i < topIslands.size(); i++) {
+            			sender.sendMessage(ChatColor.GRAY + "[" + ChatColor.AQUA + (i + 1) + ChatColor.GRAY + "] " + ChatColor.GOLD + topIslands.get(i).getName() + ChatColor.GRAY + " (Level " + topIslands.get(i).getLevel() + ")");
+            		}
+            		return true;
             	} else if (args[0].equalsIgnoreCase("config")) {
             		if (sender.isOp()) {
             			if (args.length > 1 && args[1].equalsIgnoreCase("reload")) {
@@ -1600,23 +1846,113 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     public void onPlayerInteract(PlayerInteractEvent e) {
     	Block b = e.getClickedBlock();
     	Player p = e.getPlayer();
-    	Island playerIsland = getPlayerIsland(p);
+    	SkyblockPlayer sp = getSkyblockPlayer(p);
+    	Island playerIsland = sp.getIsland();
     	if (p != null && b != null) {
     		if ((p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
-	    		if (playerIsland != null) {
-	    			if (!(playerIsland.inBounds(b.getLocation()))) {
-	    				e.setCancelled(true);
+	    		if (sp.getVisiting() != null) {
+    				Island visitingIsland = sp.getVisiting().getIsland();
+	    			if (visitingIsland.trustContains(p.getUniqueId()) && visitingIsland.inBounds(p.getLocation())) {
+	    				playerIsland = sp.getVisiting().getIsland();
+	    			} else {
+	    				if (!(
+	    						
+	    						
+	    						((b.getType() == XMaterial.ACACIA_DOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.BIRCH_DOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.DARK_OAK_DOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.JUNGLE_DOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.OAK_DOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.SPRUCE_DOOR.parseMaterial()) && visitingIsland.getSetting("useDoors"))
+	    						||
+	    						((b.getType() == XMaterial.ACACIA_TRAPDOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.BIRCH_TRAPDOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.DARK_OAK_TRAPDOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.JUNGLE_TRAPDOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.OAK_TRAPDOOR.parseMaterial()
+	    						|| b.getType() == XMaterial.SPRUCE_TRAPDOOR.parseMaterial()) && visitingIsland.getSetting("useTrapdoors"))
+	    						||
+	    						((b.getType() == XMaterial.ACACIA_FENCE_GATE.parseMaterial()
+	    						|| b.getType() == XMaterial.BIRCH_FENCE_GATE.parseMaterial()
+	    						|| b.getType() == XMaterial.DARK_OAK_FENCE_GATE.parseMaterial()
+	    						|| b.getType() == XMaterial.JUNGLE_FENCE_GATE.parseMaterial()
+	    						|| b.getType() == XMaterial.OAK_FENCE_GATE.parseMaterial()
+	    						|| b.getType() == XMaterial.SPRUCE_FENCE_GATE.parseMaterial()) && visitingIsland.getSetting("useFenceGates"))
+	    						||
+	    						((b.getType() == XMaterial.ANVIL.parseMaterial()) && visitingIsland.getSetting("useAnvils"))
+	    						||
+	    						((b.getType() == XMaterial.CRAFTING_TABLE.parseMaterial()) && visitingIsland.getSetting("useCraftingTables"))
+	    						||
+	    						((b.getType() == XMaterial.FURNACE.parseMaterial()
+	    						|| b.getType() == XMaterial.BLAST_FURNACE.parseMaterial()
+	    						|| b.getType() == XMaterial.SMOKER.parseMaterial()) && visitingIsland.getSetting("useFurnaces"))
+	    						||
+	    						((b.getType() == XMaterial.BREWING_STAND.parseMaterial()) && visitingIsland.getSetting("useBrewingStands"))
+	    						||
+	    						((b.getType() == XMaterial.ENCHANTING_TABLE.parseMaterial()) && visitingIsland.getSetting("useEnchantingTables"))
+	    						||
+	    						((b.getType() == XMaterial.JUKEBOX.parseMaterial()) && visitingIsland.getSetting("useJukeboxes"))
+	    						||
+	    						((b.getType() == XMaterial.BEACON.parseMaterial()) && visitingIsland.getSetting("useBeacons"))
+	    						||
+	    						((b.getType() == XMaterial.CHEST.parseMaterial()) && visitingIsland.getSetting("useChests"))
+	    						||
+	    						((b.getType() == XMaterial.TRAPPED_CHEST.parseMaterial()) && visitingIsland.getSetting("useTrappedChests"))
+	    						||
+	    						((b.getType() == XMaterial.ENDER_CHEST.parseMaterial()) && visitingIsland.getSetting("useEnderChests"))
+	    						||
+	    						((b.getType() == XMaterial.BLACK_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.BLUE_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.BROWN_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.CYAN_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.GRAY_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.GREEN_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.LIGHT_BLUE_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.LIGHT_GRAY_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.LIME_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.MAGENTA_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.ORANGE_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.PINK_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.PURPLE_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.RED_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.WHITE_BED.parseMaterial()
+	    						|| b.getType() == XMaterial.YELLOW_BED.parseMaterial()) && visitingIsland.getSetting("useBeds"))
+	    						||
+	    						((b.getType() == XMaterial.ACACIA_BUTTON.parseMaterial()
+	    						|| b.getType() == XMaterial.BIRCH_BUTTON.parseMaterial()
+	    						|| b.getType() == XMaterial.DARK_OAK_BUTTON.parseMaterial()
+	    						|| b.getType() == XMaterial.JUNGLE_BUTTON.parseMaterial()
+	    						|| b.getType() == XMaterial.OAK_BUTTON.parseMaterial()
+	    						|| b.getType() == XMaterial.SPRUCE_BUTTON.parseMaterial()
+	    						|| b.getType() == XMaterial.STONE_BUTTON.parseMaterial()
+	    						|| b.getType() == XMaterial.LEVER.parseMaterial()
+	    						|| b.getType() == XMaterial.ACACIA_PRESSURE_PLATE.parseMaterial()
+	    						|| b.getType() == XMaterial.BIRCH_PRESSURE_PLATE.parseMaterial()
+	    						|| b.getType() == XMaterial.DARK_OAK_PRESSURE_PLATE.parseMaterial()
+	    						|| b.getType() == XMaterial.HEAVY_WEIGHTED_PRESSURE_PLATE.parseMaterial()
+	    						|| b.getType() == XMaterial.JUNGLE_PRESSURE_PLATE.parseMaterial()
+	    						|| b.getType() == XMaterial.LIGHT_WEIGHTED_PRESSURE_PLATE.parseMaterial()
+	    						|| b.getType() == XMaterial.OAK_PRESSURE_PLATE.parseMaterial()
+	    						|| b.getType() == XMaterial.SPRUCE_PRESSURE_PLATE.parseMaterial()
+	    						|| b.getType() == XMaterial.STONE_PRESSURE_PLATE.parseMaterial()) && visitingIsland.getSetting("buttonsAndPressurePlates"))
+	    						||
+	    						((e.getItem() != null && e.getItem().getType() == XMaterial.EGG.parseMaterial()) && visitingIsland.getSetting("throwEggs"))
+	    						||
+	    						((e.getItem() != null && e.getItem().getType() == XMaterial.ENDER_PEARL.parseMaterial()) && visitingIsland.getSetting("useEnderPearls"))
+	    						
+	    						)) {
+	    					e.setCancelled(true);
+	    				}
 	    			}
 	    		} else {
-	    			e.setCancelled(true);
+	    			if (playerIsland != null) {
+		    			if (!(playerIsland.inBounds(b.getLocation()))) {
+		    				e.setCancelled(true);
+		    			}
+		    		} else {
+		    			e.setCancelled(true);
+		    		}
 	    		}
-    			SkyblockPlayer sp = getSkyblockPlayer(p);
-	    		if (sp.getVisiting() != null) {
-	    			if (sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
-	    				e.setCancelled(false);
-	    				playerIsland = sp.getVisiting().getIsland();
-	    			}
-    			}
     		}
     	}
     	if (!e.isCancelled() && config.getBoolean("BONEMEAL_DOES_MORE") && config.getBoolean("USE_CUSTOM_MECHANICS") && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
@@ -1714,6 +2050,37 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     @EventHandler
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent e) {
+    	Player p = e.getPlayer();
+    	SkyblockPlayer sp = getSkyblockPlayer(p);
+    	if (p.getLocation().getWorld() == skyWorld || p.getLocation().getWorld() == skyNether) {
+    		if (sp.getIsland() == null || !sp.getIsland().inBounds(p.getLocation())) {
+    			if (sp.getVisiting() != null) {
+    				SkyblockPlayer visiting = sp.getVisiting();
+    				if (visiting.getIsland().inBounds(p.getLocation())) {
+    					if (!visiting.getIsland().trustContains(p.getUniqueId())) {
+    						if (!(
+    								(e.getRightClicked() instanceof Sheep && visiting.getIsland().getSetting("shearSheep"))
+    								||
+    								(e.getRightClicked() instanceof Villager && visiting.getIsland().getSetting("tradeWithVillagers"))
+    								||
+    								(e.getRightClicked() instanceof Animals && visiting.getIsland().getSetting("breedAnimals"))
+    								
+    								)) {
+    							e.setCancelled(true);
+    						}
+    					}
+    				} else {
+    					e.setCancelled(true);
+    				}
+    			} else {
+    				e.setCancelled(true);
+    			}
+    		}
+    	}
+    }
+    
+    @EventHandler
     public void onEntityDamage(EntityDamageEvent e) {
     	if(e instanceof EntityDamageByEntityEvent && (e.getEntity().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getEntity().getLocation().getWorld() == skyNether))){
 	        EntityDamageByEntityEvent edbeEvent = (EntityDamageByEntityEvent)e;
@@ -1734,8 +2101,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            	if (p != null) {
 	            		SkyblockPlayer sp = getSkyblockPlayer(p);
 		            	if ((playerIsland == null || !(playerIsland.inBounds(e.getEntity().getLocation()))) && !(edbeEvent.getDamager().isOp()) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
-		            		// make it so people cant hurt mobs on other people's islands
-		            		e.setCancelled(true);
+		            		if (!(sp.getVisiting() != null && sp.getVisiting().getIsland() != null && sp.getVisiting().getIsland().inBounds(e.getEntity().getLocation()) && sp.getVisiting().getIsland().getSetting("killAnimals"))) {
+			            		// make it so people cant hurt mobs on other people's islands
+			            		e.setCancelled(true);
+		            		}
 		            	} else {
 		            		if ((e.getEntity() instanceof LivingEntity || e.getEntity() instanceof Arrow) && config.getBoolean("USE_ECONOMY")) {
 			            		if (edbeEvent.getDamage() >= ((LivingEntity)e.getEntity()).getHealth()) {
@@ -1889,7 +2258,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		e.setCancelled(true);
 			SkyblockPlayer sp = getSkyblockPlayer(p);
     		if (sp.getVisiting() != null) {
-    			if (sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
+    			if ((sp.getVisiting().getIsland().trustContains(p.getUniqueId()) || sp.getVisiting().getIsland().getSetting("pickupItems")) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
     				e.setCancelled(false);
     				playerIsland = sp.getVisiting().getIsland();
     			}
@@ -1905,7 +2274,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		e.setCancelled(true);
 			SkyblockPlayer sp = getSkyblockPlayer(p);
     		if (sp.getVisiting() != null) {
-    			if (sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
+    			if ((sp.getVisiting().getIsland().trustContains(p.getUniqueId()) || sp.getVisiting().getIsland().getSetting("dropItems")) && sp.getVisiting().getIsland().inBounds(p.getLocation())) {
     				e.setCancelled(false);
     				playerIsland = sp.getVisiting().getIsland();
     			}
@@ -2064,7 +2433,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    	Island playerIsland = getPlayerIsland(p);
 	    	SkyblockPlayer sp = getSkyblockPlayer(p);
 	    	if ((p.getLocation().getWorld() == skyWorld) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+	    		if (!(sp.getVisiting() != null && sp.getVisiting().getIsland() != null && sp.getVisiting().getIsland().inBounds(p.getLocation()) &&
+	    				((sp.getVisiting().getIsland().getSetting("throwEggs") && e.getEntityType() == EntityType.EGG)
+	    						|| (sp.getVisiting().getIsland().getSetting("useEnderPearls") && e.getEntityType() == EntityType.ENDER_PEARL)
+	    				))) {
 	    		e.setCancelled(true);
+	    		}
 	    	}
 			
 		}
@@ -2114,7 +2488,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			Player p = (Player) ent;
 	    	SkyblockPlayer sp = getSkyblockPlayer(p);
 	    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
-	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().visitorsCanRideMobs()) {
+	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().getSetting("rideMobs")) {
 	    			e.setCancelled(true);
 	    		}
 	    	}
@@ -2174,7 +2548,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER") && !Bukkit.getServer().getVersion().contains("1.15")) {
 			SkyblockPlayer sp = getSkyblockPlayer(p);
 			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
-	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().visitorsCanPortal()) {
+	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().getSetting("usePortals")) {
 	    			e.setCancelled(true);
 	    		}
 	    	}
@@ -2209,7 +2583,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			Player p = e.getPlayer();
 			SkyblockPlayer sp = getSkyblockPlayer(p);
 			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
-	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().visitorsCanPortal()) {
+	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().getSetting("usePortals")) {
 	    			e.setCancelled(true);
 	    		}
 	    	}
@@ -2363,13 +2737,60 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			} else {
 				e.getPlayer().sendMessage(ChatColor.RED + getLanguage("no-permission-island"));
 			}
+		} else if (e.getType() == 2 && e.getData() != null) {
+			if (e.getItem() != null && e.getItem().getItemMeta() != null && e.getItem().getItemMeta().getLore() != null && e.getItem().getItemMeta().getLore().size() == 1 && e.getData() != "" && e.getData() != null) {
+				boolean setVal = true;
+				List<String> lore = new ArrayList<String>();
+				ItemMeta im = e.getItem().getItemMeta();
+				if (im.getLore().get(0).equalsIgnoreCase(ChatColor.GREEN + "Allowed")) {
+					setVal = false;
+					lore.add(ChatColor.RED + "Disallowed");
+				} else {
+					lore.add(ChatColor.GREEN + "Allowed");
+				}
+				getPlayerIsland(e.getPlayer()).setSetting(e.getData(), setVal);
+				im.setLore(lore);
+				e.getItem().setItemMeta(im);
+			}
 		}
 	}
 	
 	@EventHandler
 	public void onLevelCalculatorFinish(LevelCalculatorFinishEvent e) {
 		getLogger().info("Checked " + e.getCalculator().getCheckedCount() + " chunks and calculated " + e.getCalculator().getPts() + " pts");
-		e.getPlayer().sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf((int)Math.floor((e.getCalculator().getPts()*config.getDouble("LEVEL_POINTS_MULTIPLIER"))+(e.getCalculator().getCheckedCount()*config.getDouble("LEVEL_SPREAD_MULTIPLIER"))))));
+		if (e.getPlayer() != null) {
+			int lvl = (int)Math.floor((e.getCalculator().getPts()*config.getDouble("LEVEL_POINTS_MULTIPLIER"))+(e.getCalculator().getCheckedCount()*config.getDouble("LEVEL_SPREAD_MULTIPLIER")));
+			e.getPlayer().sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf(lvl)));
+			int num = -1;
+			boolean me = false;
+			SkyblockPlayer sp = getSkyblockPlayer(e.getPlayer());
+			OfflinePlayer l = getServer().getOfflinePlayer(sp.getIsland().getLeader());
+			String lname = l.getName();
+			for (int i = 0; i < topIslands.size(); i++) {
+				if (topIslands.get(i).getName() == lname) {
+					me = true;
+				}
+				if (topIslands.get(i).getLevel() < lvl) {
+					num = i;
+					break;
+				}
+			}
+			if (num > -1 && !me) {
+				IslandLevel n = new IslandLevel(lname, lvl);
+				String name = n.getName();
+				for (int i = num; i < topIslands.size(); i++) {
+					IslandLevel t = topIslands.get(i);
+					topIslands.set(i, n);
+					n = t;
+					if (n.getName() == name) {
+						break;
+					}
+				}
+			} else if (topIslands.size() < 10 && !me) {
+				IslandLevel n = new IslandLevel(lname, lvl);
+				topIslands.add(n);
+			}
+		}
 	}
 	
 	@EventHandler
@@ -2439,7 +2860,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			if (e.getLocation().getWorld() == skyWorld || e.getLocation().getWorld() == skyNether) {
 				for (int i = 0; i < players.size(); i++) {
 					Island is = players.get(i).getIsland();
-					if (is.inBounds(e.getLocation())) {
+					if (is != null && is.inBounds(e.getLocation())) {
 						if (is.getPassiveMobs() >= config.getInt("ANIMAL_CAP")) {
 							e.setCancelled(true);
 						} else {
@@ -2459,7 +2880,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			if (ent.getLocation().getWorld() == skyWorld || ent.getLocation().getWorld() == skyNether) {
 				for (int i = 0; i < players.size(); i++) {
 					Island is = players.get(i).getIsland();
-					if (is.inBounds(ent.getLocation())) {
+					if (is != null && is.inBounds(ent.getLocation())) {
 						is.setPassiveMobs(is.getPassiveMobs() - 1);
 						return;
 					}
@@ -2481,6 +2902,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	data.set("data.nextIsland.key", nextIslandKey);
     	data.set("data.toClear", toClear);
     	data.set("mvhookedworlds", mvHookedWorlds);
+    	for (int i = 0; i < topIslands.size(); i++) {
+    		data.set("data.topIslands." + i + ".name", topIslands.get(i).getName());
+    		data.set("data.topIslands." + i + ".level", topIslands.get(i).getLevel());
+    	}
     }
 
 	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost, String schematic, String opName) {

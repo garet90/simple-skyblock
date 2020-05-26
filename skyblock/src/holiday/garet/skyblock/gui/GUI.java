@@ -65,7 +65,7 @@ public class GUI implements Listener {
 	public void onInventoryClick(InventoryClickEvent e) {
 		if ((Player)e.getWhoClicked() == player && active) {
 			if (e.getSlot() >= 0 && e.getSlot() < data.size()) {
-				GUISelectItemEvent ev = new GUISelectItemEvent(player, gui, title, e.getCursor(), data.get(e.getSlot()), type);
+				GUISelectItemEvent ev = new GUISelectItemEvent(player, gui, title, e.getCurrentItem(), data.get(e.getSlot()), type);
 				Bukkit.getPluginManager().callEvent(ev);
 			}
 			e.setCancelled(true);

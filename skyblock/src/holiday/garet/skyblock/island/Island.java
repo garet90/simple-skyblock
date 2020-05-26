@@ -25,6 +25,7 @@
 package holiday.garet.skyblock.island;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,15 +45,13 @@ public class Island {
 	String leader;
 	List<String> members;
 	List<String> trusts;
-	Boolean allowVisitors = true;
 	Boolean canReset = true;
 	int resetsLeft;
-	Boolean visitorsCanRideMobs = false;
-	Boolean visitorsCanPortal = true;
 	Boolean nether;
 	String schematic;
 	int passiveMobs = 0;
 	Plugin plugin;
+	HashMap<String, Boolean> settings = new HashMap<String, Boolean>();
 
 	public Island(int _islandKey, World _world, FileConfiguration _data, Plugin _plugin) {
 		islandKey = _islandKey;
@@ -70,9 +69,8 @@ public class Island {
 					data.getInt("data.islands." + islandKey + ".p2.z"));
 			leader = data.getString("data.islands." + islandKey + ".leader");
 			members = data.getStringList("data.islands." + islandKey + ".members");
-			allowVisitors = data.getBoolean("data.islands." + islandKey + ".allowVisitors");
-			visitorsCanRideMobs = data.getBoolean("data.islands." + islandKey + ".visitorsCanRideMobs");
-			visitorsCanPortal = data.getBoolean("data.islands." + islandKey + ".visitorsCanPortal");
+			setSettingsDefault();
+			readSettings();
 			canReset = data.getBoolean("data.islands." + islandKey + ".canReset");
 			resetsLeft = data.getInt("data.islands." + islandKey + ".resetsLeft");
 			trusts = data.getStringList("data.islands." + islandKey + ".trusts");
@@ -101,6 +99,7 @@ public class Island {
 		nether = false;
 		trusts = new ArrayList<String>();
 		schematic = s;
+		setSettingsDefault();
 	}
 	
 	public Island(World _world, Location _p1, Location _p2, Player _leader, FileConfiguration _data) {
@@ -108,6 +107,50 @@ public class Island {
 		p2 = _p2;
 		data = _data;
 		leader = _leader.getUniqueId().toString();
+		setSettingsDefault();
+	}
+	
+	public void setSettingsDefault() {
+		settings.put("allowVisitors", true);
+		settings.put("rideMobs", false);
+		settings.put("usePortals", true);
+		settings.put("useDoors", false);
+		settings.put("useTrapdoors", false);
+		settings.put("useFenceGates", false);
+		settings.put("useAnvils", false);
+		settings.put("useCraftingTables", true);
+		settings.put("useFurnaces", false);
+		settings.put("useBrewingStands", false);
+		settings.put("useEnchantingTables", false);
+		settings.put("useJukeboxes", false);
+		settings.put("useBeacons", false);
+		settings.put("useChests", false);
+		settings.put("useTrappedChests", false);
+		settings.put("useEnderChests", true);
+		settings.put("useBeds", false);
+		settings.put("tradeWithVillagers", true);
+		settings.put("buttonsAndPressurePlates", false);
+		settings.put("dropItems", false);
+		settings.put("pickupItems", false);
+		settings.put("throwEggs", false);
+		settings.put("useEnderPearls", false);
+		settings.put("breedAnimals", false);
+		settings.put("shearSheep", false);
+		settings.put("killAnimals", false);
+	}
+	
+	public void readSettings() {
+		for (String key : settings.keySet()) {
+			if (data.isSet("data.islands." + islandKey + ".settings." + key)) {
+				settings.replace(key, data.getBoolean("data.islands." + islandKey + ".settings." + key));
+			}
+		}
+	}
+	
+	public void saveSettings() {
+		for (String key : settings.keySet()) {
+			data.set("data.islands." + islandKey + ".settings." + key, settings.get(key));
+		}
 	}
 	
 	public Location getP1() {
@@ -138,9 +181,7 @@ public class Island {
 		}
 		data.set("data.islands." + String.valueOf(islandKey) + ".leader", leader);
 		data.set("data.islands." + String.valueOf(islandKey) + ".members", members);
-		data.set("data.islands." + String.valueOf(islandKey) + ".allowVisitors", allowVisitors);
-		data.set("data.islands." + String.valueOf(islandKey) + ".visitorsCanRideMobs", visitorsCanRideMobs);
-		data.set("data.islands." + String.valueOf(islandKey) + ".visitorsCanPortal", visitorsCanPortal);
+		saveSettings();
 		data.set("data.islands." + String.valueOf(islandKey) + ".canReset", canReset);
 		data.set("data.islands." + String.valueOf(islandKey) + ".nether", nether);
 		data.set("data.islands." + String.valueOf(islandKey) + ".resetsLeft", resetsLeft);
@@ -182,14 +223,6 @@ public class Island {
 			}
 		}
 		return newList;
-	}
-	
-	public boolean allowsVisitors() {
-		return allowVisitors;
-	}
-	
-	public void setAllowsVisitors(boolean _value) {
-		allowVisitors = _value;
 	}
 	
 	public void leaveIsland(Player p) {
@@ -271,28 +304,12 @@ public class Island {
 		p2 = _p2;
 	}
 	
-	public Boolean visitorsCanRideMobs() {
-		return visitorsCanRideMobs;
-	}
-	
-	public void setVisitorsCanRideMobs(Boolean _value) {
-		visitorsCanRideMobs = _value;
-	}
-	
 	public Boolean getNether() {
 		return nether;
 	}
 	
 	public void setNether(Boolean _nether) {
 		nether = _nether;
-	}
-	
-	public Boolean visitorsCanPortal() {
-		return visitorsCanPortal;
-	}
-	
-	public void setVisitorsCanPortal(Boolean _value) {
-		visitorsCanPortal = _value;
 	}
 	
 	public void removeReset() {
@@ -339,6 +356,14 @@ public class Island {
 	
 	public void setPassiveMobs(int pm) {
 		passiveMobs = pm;
+	}
+	
+	public void setSetting(String setting, boolean value) {
+		settings.replace(setting, value);
+	}
+	
+	public boolean getSetting(String setting) {
+		return settings.get(setting);
 	}
 	
 }
