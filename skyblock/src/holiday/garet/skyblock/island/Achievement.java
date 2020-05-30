@@ -23,6 +23,7 @@ public class Achievement {
 	private List<ItemStack> requiredItems = new ArrayList<ItemStack>();
 	private double requiredMoney;
 	private String requiredPermission;
+	private int requiredLevel;
 	
 	private List<ItemStack> rewardItems = new ArrayList<ItemStack>();
 	private double rewardMoney;
@@ -47,37 +48,43 @@ public class Achievement {
 		im.setLore(lore);
 		this.item.setItemMeta(im);
 		
-		// set requirements
-		if (requirements.contains("hasItems")) {
-			List<String> ri = requirements.getStringList("hasItems");
-			ri.forEach((rit) -> {
-				try {
-					String[] sp = rit.split(":");
-					requiredItems.add(new ItemStack(XMaterial.matchXMaterial(sp[0]).get().parseMaterial(), Integer.valueOf(sp[1])));
-				} catch (Exception e) {
-					// material not found!
-				}
-			});
+		if (requirements != null) {
+			// set requirements
+			if (requirements.contains("hasItems")) {
+				List<String> ri = requirements.getStringList("hasItems");
+				ri.forEach((rit) -> {
+					try {
+						String[] sp = rit.split(":");
+						requiredItems.add(new ItemStack(XMaterial.matchXMaterial(sp[0]).get().parseMaterial(), Integer.valueOf(sp[1])));
+					} catch (Exception e) {
+						// material not found!
+					}
+				});
+			}
+			
+			requiredMoney = requirements.getDouble("hasMoney");
+			
+			requiredPermission = requirements.getString("hasPermission");
+			
+			requiredLevel = requirements.getInt("level");
 		}
 		
-		requiredMoney = requirements.getDouble("hasMoney");
-		
-		requiredPermission = requirements.getString("hasPermission");
-		
-		// set rewards
-		if (rewards.contains("items")) {
-			List<String> rei = rewards.getStringList("items");
-			rei.forEach((rit) -> {
-				try {
-					String[] sp = rit.split(":");
-					rewardItems.add(new ItemStack(XMaterial.matchXMaterial(sp[0]).get().parseMaterial(), Integer.valueOf(sp[1])));
-				} catch (Exception e) {
-					// material not found!
-				}
-			});
+		if (rewards != null) {
+			// set rewards
+			if (rewards.contains("items")) {
+				List<String> rei = rewards.getStringList("items");
+				rei.forEach((rit) -> {
+					try {
+						String[] sp = rit.split(":");
+						rewardItems.add(new ItemStack(XMaterial.matchXMaterial(sp[0]).get().parseMaterial(), Integer.valueOf(sp[1])));
+					} catch (Exception e) {
+						// material not found!
+					}
+				});
+			}
+			
+			rewardMoney = rewards.getDouble("money");
 		}
-		
-		rewardMoney = rewards.getDouble("money");
 	}
 	
 	public String getName() {
@@ -88,7 +95,7 @@ public class Achievement {
 		return item;
 	}
 	
-	public boolean checkCompletion(Player p) {
+	public boolean checkCompletion(Player p, Island is) {
 		PlayerInventory pInv = p.getInventory();
 		for (int i = 0; i < requiredItems.size(); i++) {
 			if (!pInv.containsAtLeast(requiredItems.get(i), requiredItems.get(i).getAmount())) {
@@ -96,19 +103,25 @@ public class Achievement {
 			}
 		}
 		
-		if (vaultEconomy != null) {
-			if (vaultEconomy.getBalance(p) < requiredMoney) {
-				return false;
-			}
-		} else {
-			Economy e = new Economy(p.getUniqueId(), this.data);
-			
-			if (e.get() < requiredMoney) {
-				return false;
+		if (requiredMoney != 0) {
+			if (vaultEconomy != null) {
+				if (vaultEconomy.getBalance(p) < requiredMoney) {
+					return false;
+				}
+			} else {
+				Economy e = new Economy(p.getUniqueId(), this.data);
+				
+				if (e.get() < requiredMoney) {
+					return false;
+				}
 			}
 		}
 		
 		if (requiredPermission != null && !p.hasPermission(requiredPermission)) {
+			return false;
+		}
+		
+		if (requiredLevel != 0 && is.getLevel() < requiredLevel) {
 			return false;
 		}
 		

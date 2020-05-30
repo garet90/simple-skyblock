@@ -23,6 +23,8 @@ public class Upgrade {
 	private List<ItemStack> costItems = new ArrayList<ItemStack>();
 	private double costMoney;
 	private String costPermission;
+	private int level;
+	private List<String> prereqs = new ArrayList<String>();
 	
 	private List<String> rewardGeneratorOres = new ArrayList<String>();
 	
@@ -46,25 +48,33 @@ public class Upgrade {
 		im.setLore(lore);
 		this.item.setItemMeta(im);
 		
-		// set requirements
-		if (costs.contains("items")) {
-			List<String> ri = costs.getStringList("items");
-			ri.forEach((rit) -> {
-				try {
-					String[] sp = rit.split(":");
-					costItems.add(new ItemStack(XMaterial.matchXMaterial(sp[0]).get().parseMaterial(), Integer.valueOf(sp[1])));
-				} catch (Exception e) {
-					// material not found!
-				}
-			});
+		if (costs != null) {
+			// set requirements
+			if (costs.contains("items")) {
+				List<String> ri = costs.getStringList("items");
+				ri.forEach((rit) -> {
+					try {
+						String[] sp = rit.split(":");
+						costItems.add(new ItemStack(XMaterial.matchXMaterial(sp[0]).get().parseMaterial(), Integer.valueOf(sp[1])));
+					} catch (Exception e) {
+						// material not found!
+					}
+				});
+			}
+			
+			costMoney = costs.getDouble("money");
+			
+			costPermission = costs.getString("permission");
+			
+			level = costs.getInt("level");
+			
+			prereqs = costs.getStringList("pre");
 		}
 		
-		costMoney = costs.getDouble("money");
-		
-		costPermission = costs.getString("permission");
-		
-		// set rewards
-		rewardGeneratorOres = rewards.getStringList("generator_ores");
+		if (rewards != null) {
+			// set rewards
+			rewardGeneratorOres = rewards.getStringList("generator_ores");
+		}
 	}
 	
 	public String getName() {
@@ -75,7 +85,7 @@ public class Upgrade {
 		return item;
 	}
 	
-	public boolean checkCompletion(Player p) {
+	public boolean checkCompletion(Player p, Island is) {
 		PlayerInventory pInv = p.getInventory();
 		for (int i = 0; i < costItems.size(); i++) {
 			if (!pInv.containsAtLeast(costItems.get(i), costItems.get(i).getAmount())) {
@@ -97,6 +107,16 @@ public class Upgrade {
 		
 		if (costPermission != null && !p.hasPermission(costPermission)) {
 			return false;
+		}
+		
+		if (level != 0 && is.getLevel() < level) {
+			return false;
+		}
+		
+		for (int i = 0; i < prereqs.size(); i++) {
+			if (!is.hasUpgrade(prereqs.get(i))) {
+				return false;
+			}
 		}
 		
 		return true;

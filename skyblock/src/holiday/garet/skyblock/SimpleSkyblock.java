@@ -77,6 +77,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockFormEvent;
+import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -503,8 +504,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		        getLogger().info("There are no updates for SimpleSkyblock at this time.");
 	        }
 	    } catch(Exception e) {
-	        Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "Could not proceed update-checking, plugin disabled!");
-	        Bukkit.getPluginManager().disablePlugin(this);
+	        Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "Could not proceed update-checking!");
 	    }
     	
     }
@@ -1265,7 +1265,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            				} else {
 	            					lore.add(ChatColor.RED + "Not Completed");
 	            					lore.add("");
-	            					if (SimpleSkyblock.quests.get(i).checkCompletion(p)) {
+	            					if (SimpleSkyblock.quests.get(i).checkCompletion(p, playerIsland)) {
 	            						lore.add(ChatColor.GREEN + "" + ChatColor.ITALIC + "Click here to complete!");
 	            					} else {
 	            						lore.add(ChatColor.RED + "Requirements not met.");
@@ -1286,7 +1286,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             	} else if (args[0].equalsIgnoreCase("upgrades")) {
             		if (playerIsland != null) {
             			if (p.getLocation().getWorld() == skyWorld || (usingNether && p.getLocation().getWorld() == skyNether)) {
-	            			// TODO upgrades
 	            			GUI g = new GUI(getLanguage("upgrades-title"), p, (int)(Math.ceil(SimpleSkyblock.upgrades.size() / 9.0)*9), 5);
 	    					this.getServer().getPluginManager().registerEvents(g, this);
 	            			for (int i = 0; i < SimpleSkyblock.upgrades.size(); i++) {
@@ -1299,7 +1298,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            				} else {
 	            					lore.add(ChatColor.RED + "Not unlocked");
 	            					lore.add("");
-	            					if (SimpleSkyblock.upgrades.get(i).checkCompletion(p)) {
+	            					if (SimpleSkyblock.upgrades.get(i).checkCompletion(p, playerIsland)) {
 	            						lore.add(ChatColor.GREEN + "" + ChatColor.ITALIC + "Click here to unlock!");
 	            					} else {
 	            						lore.add(ChatColor.RED + "Requirements not met.");
@@ -2452,11 +2451,62 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     @EventHandler
+    public void onBlockFromTo(BlockFromToEvent e) {
+    	Block f = e.getBlock();
+    	Block t = e.getToBlock();
+    	if ((f.getLocation().getWorld() == skyWorld || (usingNether && f.getLocation().getWorld() == skyNether)) && (f.getType() == XMaterial.LAVA.parseMaterial() || f.getType() == Material.matchMaterial("STATIONARY_LAVA"))) {
+    		BlockFace[] faces = {
+    				BlockFace.EAST,
+    				BlockFace.WEST,
+    				BlockFace.NORTH,
+    				BlockFace.SOUTH
+    		};
+    		for (BlockFace face : faces) {
+    			if ((t.getRelative(face).getType() == XMaterial.WATER.parseMaterial() || t.getRelative(face).getType() == Material.matchMaterial("STATIONARY_WATER"))  && config.getBoolean("GENERATE_ORES")) {
+    				e.setCancelled(true);
+					double oreType = Math.random() * 100.0;
+					List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
+					Island is = null;
+					for (int i = 0; i < islands.size(); i++) {
+						if (islands.get(i).inBounds(e.getBlock().getLocation())) {
+							is = islands.get(i);
+							break;
+						}
+					}
+					if (is != null && is.getGeneratorOres().size() > 0) {
+						GENERATOR_ORES = is.getGeneratorOres();
+					}
+				    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
+				    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
+				    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
+				    	if (itemMat != null) {
+				    		oreType -= itemChance;
+				    		if (oreType < 0) {
+				    			t.setType(itemMat);
+				    			break;
+				    		}
+				    	} else {
+				    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
+				    	}
+				    }
+    			    if (t.getType() == XMaterial.AIR.parseMaterial()) {
+    			    	t.setType(XMaterial.COBBLESTONE.parseMaterial());
+    			    } else if (t.getType() != XMaterial.COBBLESTONE.parseMaterial()) {
+    			    	BlockFormEvent ne = new BlockFormEvent(e.getBlock(), e.getBlock().getState());
+    			    	this.getServer().getPluginManager().callEvent(ne);
+    			    	// call event so we can do fancy stuff in things like Skript and change the material.
+    			    	// Don't do it for cobblestone though or we'll create an infinite loop.
+    			    }
+				}
+			}
+    	}
+    }
+    
+    @EventHandler
     public void onBlockForm(BlockFormEvent e) {
-    	// previously onFromTo, which was a lot more intense on the CPU. Now use onBlockForm and it works like a charm
     	if (e.getNewState().getType() == XMaterial.COBBLESTONE.parseMaterial() && (e.getBlock().getWorld() == skyWorld || (usingNether && e.getBlock().getWorld() == skyNether))) {
-    		e.setCancelled(true);
     		if (config.getBoolean("GENERATE_ORES")) {
+    			e.setCancelled(true);
 				double oreType = Math.random() * 100.0;
 				List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
 				Island is = null;
@@ -2482,15 +2532,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			    		getLogger().severe("Unknown material \'" + GENERATOR_ORES.get(i).split(":")[0] + "\' at GENERATOR_ORES item " + (i + 1) + "!");
 			    	}
 			    }
+			    if (e.getBlock().getType() == XMaterial.AIR.parseMaterial()) {
+			    	e.getBlock().setType(XMaterial.COBBLESTONE.parseMaterial());
+			    } else if (e.getBlock().getType() != XMaterial.COBBLESTONE.parseMaterial()) {
+			    	BlockFormEvent ne = new BlockFormEvent(e.getBlock(), e.getBlock().getState());
+			    	this.getServer().getPluginManager().callEvent(ne);
+			    	// call event so we can do fancy stuff in things like Skript and change the material.
+			    	// Don't do it for cobblestone though or we'll create an infinite loop.
+			    }
 			}
-		    if (e.getBlock().getType() == XMaterial.AIR.parseMaterial()) {
-		    	e.getBlock().setType(XMaterial.COBBLESTONE.parseMaterial());
-		    } else if (e.getBlock().getType() != XMaterial.COBBLESTONE.parseMaterial()) {
-		    	BlockFormEvent ne = new BlockFormEvent(e.getBlock(), e.getBlock().getState());
-		    	this.getServer().getPluginManager().callEvent(ne);
-		    	// call event so we can do fancy stuff in things like Skript and change the material.
-		    	// Don't do it for cobblestone though or we'll create an infinite loop.
-		    }
     	}
     }
 
@@ -2513,7 +2563,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			SkyblockPlayer sp = getSkyblockPlayer(p);
 			p.getInventory().addItem(e.getItem().getItemStack());
 			for (int i = 0; i < SimpleSkyblock.achievements.size(); i++) {
-				if (!sp.hasAchievement(SimpleSkyblock.achievements.get(i).getName()) && SimpleSkyblock.achievements.get(i).checkCompletion(p)) {
+				if (!sp.hasAchievement(SimpleSkyblock.achievements.get(i).getName()) && SimpleSkyblock.achievements.get(i).checkCompletion(p, playerIsland)) {
 					SimpleSkyblock.achievements.get(i).awardPlayer(p);
 					sp.setAchievement(SimpleSkyblock.achievements.get(i).getName(), true);
 					if (config.getBoolean("ANNOUNCE_ACHIEVEMENTS")) {
@@ -3044,7 +3094,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			}
 			if (qe != null) {
 				SkyblockPlayer sp = getSkyblockPlayer(e.getPlayer());
-				if (!sp.hasQuest(q) && qe.checkCompletion(e.getPlayer())) {
+				if (!sp.hasQuest(q) && qe.checkCompletion(e.getPlayer(), getPlayerIsland(e.getPlayer()))) {
 					qe.awardPlayer(e.getPlayer());
 					sp.setQuest(q, true);
 					e.getPlayer().sendMessage(getLanguage("quests-award").replace("{quest}", qe.getItem().getItemMeta().getDisplayName()));
@@ -3068,7 +3118,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			if (up != null) {
 				SkyblockPlayer sp = getSkyblockPlayer(e.getPlayer());
 				Island playerIsland = sp.getIsland();
-				if (!playerIsland.hasUpgrade(u) && up.checkCompletion(e.getPlayer())) {
+				if (!playerIsland.hasUpgrade(u) && up.checkCompletion(e.getPlayer(), playerIsland)) {
 					up.awardPlayer(e.getPlayer(), playerIsland);
 					playerIsland.setUpgrade(u, true);
 					e.getPlayer().sendMessage(getLanguage("upgrades-purchase").replace("{upgrade}", up.getItem().getItemMeta().getDisplayName()));
@@ -3091,6 +3141,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		if (e.getPlayer() != null) {
 			int lvl = (int)Math.floor((e.getCalculator().getPts()*config.getDouble("LEVEL_POINTS_MULTIPLIER"))+(e.getCalculator().getCheckedCount()*config.getDouble("LEVEL_SPREAD_MULTIPLIER")));
 			e.getPlayer().sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf(lvl)));
+			getPlayerIsland(e.getPlayer()).setLevel(lvl);
 			int num = -1;
 			int me = -2;
 			SkyblockPlayer sp = getSkyblockPlayer(e.getPlayer());

@@ -46,8 +46,7 @@ public class UpdateChecker {
         try {
             checkURL = new URL("https://api.spigotmc.org/legacy/update.php?resource=" + projectID);
         } catch (MalformedURLException e) {
-            Bukkit.getLogger().warning("§4Could not connect to Spigot, plugin disabled!");
-            Bukkit.getPluginManager().disablePlugin(plugin);
+            Bukkit.getLogger().warning("§4Could not connect to Spigot!");
         }
     }
     public String getResourceUrl() {return "https://spigotmc.org/resources/" + project;}

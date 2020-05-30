@@ -183,6 +183,8 @@ ACHIEVEMENTS:
 #     # Required money to complete achievement
 #     hasPermission: skyblock.island
 #     # Required permission to complete achievement
+#     level: 5
+#     # Required level to complete achievement
 #   rewards:
 #     items:
 #     - DIAMOND:10
@@ -209,6 +211,8 @@ QUESTS:
 #     money: 0
 #     permission: skyblock.island
 #     # Permission is not taken
+#     level: 5
+#     # level is not taken
 #   rewards:
 #     items:
 #     - DIAMOND:10
@@ -287,12 +291,21 @@ LEVEL_SPREAD_MULTIPLIER: .1
 ANIMAL_CAP: 10
 
 UPGRADES:
+# someOther:
+#   item: DIRT
+#   name: "Legit does nothing"
+#   lore:
+#   - "&r&7That's about it."
 # betterGenerators:
 #   costs:
 #     money: 1000
 #     items:
 #     - DIAMOND:10
 #     permission: skyblock.island
+#     level: 10
+#     pre:
+#     - someOther
+#     # pre is what must be unlocked before this one can be
 #   rewards:
 #     generator_ores:
 #     - DIAMOND_ORE:100

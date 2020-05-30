@@ -51,13 +51,14 @@ public class Island {
 	Boolean nether;
 	String schematic;
 	int passiveMobs = 0;
+	int level = 0;
 	Plugin plugin;
 	HashMap<String, Boolean> settings = new HashMap<String, Boolean>();
 	
 	HashMap<String, Boolean> upgrades = new HashMap<String, Boolean>();
 	
 	List<String> generatorOres = new ArrayList<String>();
-
+	
 	public Island(int _islandKey, World _world, FileConfiguration _data, Plugin _plugin) {
 		islandKey = _islandKey;
 		data = _data;
@@ -95,6 +96,7 @@ public class Island {
 					upgrades.put(key, s.getBoolean(key));
 				});
 			}
+			level = data.getInt("data.islands." + String.valueOf(islandKey) + ".level");
 		}
 	}
 	
@@ -200,6 +202,7 @@ public class Island {
 		data.set("data.islands." + String.valueOf(islandKey) + ".trusts", trusts);
 		data.set("data.islands." + String.valueOf(islandKey) + ".passiveMobs", passiveMobs);
 		data.set("data.islands." + String.valueOf(islandKey) + ".generatorOres", generatorOres);
+		data.set("data.islands." + String.valueOf(islandKey) + ".level", level);
 		// upgrades
 		upgrades.forEach((key, value) -> {
 			data.set("data.islands." + String.valueOf(islandKey) + ".upgrades." + key, value);
@@ -408,5 +411,13 @@ public class Island {
 	
 	public void resetUpgrades() {
 		upgrades = new HashMap<String, Boolean>();
+	}
+	
+	public int getLevel() {
+		return level;
+	}
+	
+	public void setLevel(int level) {
+		this.level = level;
 	}
 }
