@@ -22,6 +22,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+// SimpleSkyblock is written event driven and object oriented. When possible, loops
+// that span multiple ticks or an onUpdate checker should be avoided.
+
 package holiday.garet.skyblock;
 
 import java.io.File;
@@ -65,6 +68,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Sheep;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
@@ -146,39 +150,59 @@ import holiday.garet.skyblock.world.tools.LevelCalculator;
 
 @SuppressWarnings("deprecation")
 public class SimpleSkyblock extends JavaPlugin implements Listener {
-	
-	FileConfiguration config = this.getConfig();
-	FileConfiguration data = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "data.yml"));
-	FileConfiguration levelpoints = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "levelpoints.yml"));
-	FileConfiguration language = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "language.yml"));
+	// Can't be static because they use "this" to get data.
+	public FileConfiguration config = this.getConfig();
+	public FileConfiguration data = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "data.yml"));
+	public FileConfiguration levelpoints = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "levelpoints.yml"));
+	public FileConfiguration language = YamlConfiguration.loadConfiguration(new File(getDataFolder(), "language.yml"));
 
 	public static List<SkyblockPlayer> players = new ArrayList<SkyblockPlayer>();
 	public static List<Island> islands = new ArrayList<Island>();
-	List<TradeRequest> tradingRequests = new ArrayList<TradeRequest>();
-	List<IslandInvite> islandInvites = new ArrayList<IslandInvite>();
+	public static List<TradeRequest> tradingRequests = new ArrayList<TradeRequest>();
+	public static List<IslandInvite> islandInvites = new ArrayList<IslandInvite>();
 	
-	public HashMap<Integer, Location> spawnLocations = new HashMap<Integer, Location>();
+	public static HashMap<String, GStructure> structures = new HashMap<String, GStructure>();
+	// Going to have a cache of structures so they do not have to be loaded every time
+	
+	public static HashMap<Integer, Location> spawnLocations = new HashMap<Integer, Location>();
 	
 	public static List<IslandLevel> topIslands = new ArrayList<IslandLevel>(10);
 	
-	int nextIslandKey = 0;
+	public static int nextIslandKey = 0;
 	
-	List<String> toClear = new ArrayList<String>();
+	public static List<String> toClear = new ArrayList<String>();
 	
-	Location nextIsland;
+	public static List<Integer> runningCalculators = new ArrayList<Integer>();
+	// had to add so people couldn't crash the server by running like 5000 level calculators at once.
+	// It would be kinda funny if it were possible though, DDoSing a server with like 5 billion level calculator requests
 	
-	World skyWorld;
-	World skyNether;
+	public static Location nextIsland;
 	
-	Boolean usingVault = false;
-	net.milkbowl.vault.economy.Economy vaultEconomy = null;
-	String mvHookedWorlds = "world";
+	public static World skyWorld;
+	public static World skyNether;
+	
+	public static Boolean usingVault = false;
+	public static net.milkbowl.vault.economy.Economy vaultEconomy = null;
+	public static String mvHookedWorlds = "world";
+	
+	public static String chatPrefix = "";
+	
+	// common settings to help improve performance.
+	public static Boolean usingNether;
+	public static List<String> chatWorlds;
+	public static Boolean useChatrooms;
 	
     @Override
     public void onEnable() {
+        
+        // Initialize metrics
         @SuppressWarnings("unused")
 		Metrics metrics = new Metrics(this);
+        
+        // register events
     	Bukkit.getPluginManager().registerEvents(this, this);
+    	
+    	// make sure configuration file is up to date
     	if (config.isSet("data")) {
     		// if the config is out of date, lets fix that.
     		convertConfig("1.2.0","1.2.1");
@@ -189,10 +213,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	} else {
     		getLogger().warning("Your configuration file is out of date! You may continue to use it, but it may not contain the latest settings.");
     	}
+    	
+    	// save config defaults so we don't have to deal with null in the config upon updating
         this.saveDefaultConfig();
         this.getConfig().options().copyDefaults(true);
         config = this.getConfig();
     	reloadConfig();
+    	
+    	// copy needed files if they don't exist
     	File langFile = new File(getDataFolder(), "language.yml");
     	if (!langFile.exists()) {
     		try {
@@ -212,6 +240,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			}
     	}
     	
+    	// set levelpoint values from the levelpoints file
     	for (String key : levelpoints.getKeys(false)) {
     		try {
     			LevelCalculator.points.put(XMaterial.matchXMaterial(key).get().parseMaterial(), levelpoints.getInt(key));
@@ -220,6 +249,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		}
     	}
     	
+    	// write schematic files
     	// check schematic loading
     	File sc1 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.nbt");
     	File sc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default_nether.nbt");
@@ -254,6 +284,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			}
     	}
 
+    	// delete old schematic files (Not technically needed, will be removed in SS 1.5.0)
     	File oldsc1 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.yml");
     	File oldsc2 = new File(getDataFolder() + File.separator + "structures" + File.separator + "nether.yml");
     	File oldsc3 = new File(getDataFolder() + File.separator + "structures" + File.separator + "default.schematic");
@@ -275,16 +306,22 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		oldsc4.delete();
     	}
     	
+    	// Using nether must be placed before worlds are generated or we'll run into null pointer problems because it is used
+    	usingNether = config.getBoolean("USE_NETHER");
     	
+    	// generate worlds
+    	// get world name
     	final String worldName;
     	if (config.isSet("WORLD")) {
     		worldName = config.getString("WORLD");
     	} else {
     		worldName = "world";
     	}
+    	// shout out to Mr. Test
     	if (worldName == "mrtest") {
     		getLogger().info("OOGA BOOGA BOOGA!");
     	}
+    	// get worlds and if they're null, generate them
     	skyWorld = getServer().getWorld(worldName);
     	skyNether = getServer().getWorld(worldName + "_nether");
     	if (skyWorld == null) { // If we don't have a world generated yet
@@ -307,7 +344,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                 }
             }, 0L);
     	}
-    	if (skyNether == null && config.getBoolean("USE_NETHER")) { // If we don't have a world generated yet
+    	if (skyNether == null && usingNether) { // If we don't have a world generated yet
             BukkitScheduler scheduler = getServer().getScheduler();
             scheduler.scheduleSyncDelayedTask(this, new Runnable() {
                 @Override
@@ -320,7 +357,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                 }
             }, 0L);
     	}
+    	
+    	// toClear are people's inventories that should be reset because they were offline when a reset happened
     	toClear = data.getStringList("data.toClear");
+    	
+    	// set next island location and key
     	if (data.isSet("data.nextIsland")) {
     		nextIsland = new Location(skyWorld, data.getInt("data.nextIsland.x"), config.getInt("ISLAND_HEIGHT"), data.getInt("data.nextIsland.x"));
     	} else {
@@ -329,9 +370,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	if (data.isSet("data.nextIsland.key")) {
     		nextIslandKey = data.getInt("data.nextIsland.key");
     	}
+    	
+    	// set mvHookedWorld so we don't try and hook it every time
     	if (data.isSet("mvhookedworlds")) {
     		mvHookedWorlds = data.getString("mvhookedworlds");
     	}
+    	
+    	// connect to vault
     	if (getServer().getPluginManager().getPlugin("Vault")!=null) {
     		RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> rsp = getServer().getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
     		if (rsp != null) {
@@ -339,19 +384,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             	usingVault = true;
     		}
     	}
-    	getLogger().info("SimpleSkyblock has been enabled!");
-    	try {
-	        getLogger().info("Checking for updates...");
-	        UpdateChecker updater = new UpdateChecker(this, 72100);
-	        if(updater.checkForUpdates()) {
-		        getLogger().info(ChatColor.GREEN + "There is an update for SimpleSkyblock! Go to https://www.spigotmc.org/resources/simple-skyblock.72100/ to download it.");
-	        }else{
-		        getLogger().info("There are no updates for SimpleSkyblock at this time.");
-	        }
-	    } catch(Exception e) {
-	        Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "Could not proceed update-checking, plugin disabled!");
-	        Bukkit.getPluginManager().disablePlugin(this);
-	    }
+    	
+    	// in case of /reload we need to grab that data
     	for (Player p: getServer().getOnlinePlayers()) {
         	if (p != null) {
 	    		Island playerIsland = getPlayerIsland(p);
@@ -376,9 +410,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		}
         	}
     	}
+
+    	// check for placeholderapi and register if found
     	if(Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null){
             new SkyPlaceholderExpansion(this).register();
     	}
+    	
+    	// check for multiverse core and register if present
     	if(Bukkit.getPluginManager().getPlugin("Multiverse-Core") != null && mvHookedWorlds != worldName) {
 	        BukkitScheduler scheduler = getServer().getScheduler();
 	        scheduler.scheduleSyncDelayedTask(this, new Runnable() {
@@ -391,11 +429,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            }
 	        }, 1L);
     	}
+    	
+    	// register breedhandler if version allows it
     	if (!(getServer().getVersion().contains("1.8") || getServer().getVersion().contains("1.9"))) {
     		EntityBreedHandler breedHandler = new EntityBreedHandler(this);
     		this.getServer().getPluginManager().registerEvents(breedHandler, this);
     	}
     	
+    	// load top islands
     	if (data.contains("data.topIslands")) {
     		for (int i = 0; i < 10; i++) {
     			if (data.contains("data.topIslands." + i)) {
@@ -404,9 +445,36 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     			}
     		}
     	}
+    	
+    	// set chat prefix (It is used fairly often, there is no reason to search in config.yml every time
+    	chatPrefix = config.getString("CHAT_PREFIX").replaceAll("&", "§");
+    	
+    	// load common settings
+    	chatWorlds = config.getStringList("CHAT_WORLDS");
+    	useChatrooms = config.getBoolean("USE_CHATROOMS");
+    	
+    	// YAY
+    	getLogger().info("SimpleSkyblock has been enabled!");
+    	
+    	// check for updates
+    	try {
+	        getLogger().info("Checking for updates...");
+	        UpdateChecker updater = new UpdateChecker(this, 72100);
+	        if(updater.checkForUpdates()) {
+		        getLogger().info(ChatColor.GREEN + "There is an update for SimpleSkyblock! Go to https://www.spigotmc.org/resources/simple-skyblock.72100/ to download it.");
+	        }else{
+		        getLogger().info("There are no updates for SimpleSkyblock at this time.");
+	        }
+	    } catch(Exception e) {
+	        Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "Could not proceed update-checking, plugin disabled!");
+	        Bukkit.getPluginManager().disablePlugin(this);
+	    }
+    	
     }
     
     public String getLanguage(String _key) {
+    	// getting language from config and formatting it
+    	// Could be changed to HashMap for performance benefit, but I don't really care too much as this file is relatively small.
     	if (language.isSet(_key)) {
     		return language.getString(_key).replaceAll("&", "§");
     	}
@@ -414,16 +482,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	return "";
     }
     
-    public boolean activateVault() {
-    	return true;
-    }
-    
     public ChunkGenerator getDefaultWorldGenerator(String worldName, String id) {
+    	// returns the generator so you can use "generator: SimpleSkyblock" in bukkit.yml
     	return new Generator();
     }
     
     @Override
     public void onDisable() {
+    	// save data
     	getLogger().info("Saving skyblock data...");
     	saveData();
     	try {
@@ -431,6 +497,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		} catch (IOException e) {
             Bukkit.getLogger().warning("§4Could not save data.yml file.");
 		}
+    	
+    	// YAY
     	getLogger().info("SimpleSkyblock has been disabled!");
     }
     
@@ -439,9 +507,15 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                              Command command,
                              String label,
                              String[] args) {
-        if (command.getName().equalsIgnoreCase("island") || command.getName().equalsIgnoreCase("is")) {
+        // This function is quite beefy, most of it is just ifs and elses to say things to the player
+		// when they try to do something that doesn't make sense. Otherwise things would just break.
+		// Also, I have return true at the end of each else because it helps to catch when there is no error catching.
+		if (command.getName().equalsIgnoreCase("island") || command.getName().equalsIgnoreCase("is")) {
         	if (sender instanceof Player) {
     			Player p = (Player) sender;
+    			
+    			// Could be changed because these functions are relatively CPU intensive, but they are not used
+    			// that often, and they are used in almost every instance below.
         		Island playerIsland = getPlayerIsland(p);
     			SkyblockPlayer sp = getSkyblockPlayer(p);
             	if (args.length == 0) {
@@ -488,7 +562,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				            PlayerCreateIslandEvent e = new PlayerCreateIslandEvent(sp, p, nextIsland, config.getBoolean("RETAIN_MONEY"), islandName);
 				            Bukkit.getPluginManager().callEvent(e);
 				            if (!e.getCancelled()) {
-					            sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("generating-island"));
+					            sender.sendMessage(chatPrefix + getLanguage("generating-island"));
 				            	generateIsland(e.getIslandLocation(), p, null, e.getOverrideResetMoney(), it.getString(islandName + ".schematic"), islandName);
 				            }
 	        			}
@@ -497,7 +571,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        			PlayerTeleportToIslandEvent e = new PlayerTeleportToIslandEvent(p, sp, playerIsland, true);
 	        			Bukkit.getPluginManager().callEvent(e);
 	        			if (!e.getCancelled()) {
-		        			sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("teleporting-to-island"));
+		        			sender.sendMessage(chatPrefix + getLanguage("teleporting-to-island"));
 		        			p.teleport(sp.getHome(), TeleportCause.PLUGIN);
 		        			if (e.getSetSkySpawn()) {
 		        				sp.setSkySpawn(p.getLocation());
@@ -543,7 +617,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	        			PlayerTeleportToIslandEvent e = new PlayerTeleportToIslandEvent(p, sp, playerIsland, true);
 	        			Bukkit.getPluginManager().callEvent(e);
 	        			if (!e.getCancelled()) {
-		        			sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("teleporting-to-island"));
+		        			sender.sendMessage(chatPrefix + getLanguage("teleporting-to-island"));
 		        			p.teleport(sp.getHome(), TeleportCause.PLUGIN);
 		        			if (e.getSetSkySpawn()) {
 		        				sp.setSkySpawn(p.getLocation());
@@ -566,7 +640,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            		if (e.getSetSkySpawn()) {
 			            			sp.setSkySpawn(e.getHomeLocation());
 			            		}
-			            		sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("set-island-home"));
+			            		sender.sendMessage(chatPrefix + getLanguage("set-island-home"));
 	            			}
 	            		} else {
 	            			sender.sendMessage(ChatColor.RED + getLanguage("not-on-island"));
@@ -684,14 +758,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 									            			tempInv.clear();
 									            			tempInv.setArmorContents(new ItemStack[4]);
 									            			tempP.teleport(sp.getHome(), TeleportCause.PLUGIN);
-									            			tempP.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-success"));
+									            			tempP.sendMessage(chatPrefix + getLanguage("reset-success"));
 									            		}
 									            	}
 									            }
 									            PlayerInventory inv = p.getInventory();
 									            inv.clear();
 									            inv.setArmorContents(new ItemStack[4]);
-									            sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-success"));
+									            sender.sendMessage(chatPrefix + getLanguage("reset-success"));
 					            			}
 								            return true;
 					            		} else {
@@ -713,7 +787,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 					        		DecimalFormat dec = new DecimalFormat("#0.00");
 				            		sender.sendMessage(ChatColor.GREEN + getLanguage("reset-confirm-cost").replace("{money}", String.valueOf(dec.format(resetCost.get(resetNumber)))));
 		            			}
-		            			sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-confirm"));
+		            			sender.sendMessage(chatPrefix + getLanguage("reset-confirm"));
 		            			if (!config.getBoolean("INFINITE_RESETS")) {
 		            				sender.sendMessage(ChatColor.RED + getLanguage("reset-warn").replace("{resets}", String.valueOf(playerIsland.getResetsLeft())));
 		            			}
@@ -762,7 +836,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            		sp.setSkySpawn(p.getLocation());
 			        			p.setFallDistance(0);
 			        			sp.setVisiting(sz);
-	                			sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("visit-teleport").replace("{player}", pName));
+	                			sender.sendMessage(chatPrefix + getLanguage("visit-teleport").replace("{player}", pName));
                 			}
                 			return true;
             			} else if (p.getName().equalsIgnoreCase(args[1])) { 
@@ -782,6 +856,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
             	} else if (args[0].equalsIgnoreCase("settings")) {
             		if (playerIsland != null) {
 	            		if (playerIsland.getLeader().toString().equalsIgnoreCase(p.getUniqueId().toString())) {
+	            			// Crazy, ikr, sadly it cannot be cached because of the Allowed / Disallowed in the lore
+	            			// It does take quite some power to load this, but it should not be used that often.
 	            			GUI g = new GUI(getLanguage("settings-title"), p, 27, 2);
         					this.getServer().getPluginManager().registerEvents(g, this);
 	            			int i = 0;
@@ -1353,15 +1429,19 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         			}
             	} else if (args[0].equalsIgnoreCase("level")) {
             		if (playerIsland != null) {
-            			List<Chunk> c = new ArrayList<Chunk>(2);
-            			Chunk o = skyWorld.getChunkAt(playerIsland.getP1().clone().add(config.getInt("ISLAND_WIDTH")/2, 0, config.getInt("ISLAND_DEPTH")/2));
-            			c.add(o);
-            			if (config.getBoolean("USE_NETHER")) {
-            				Chunk n = skyNether.getChunkAt(playerIsland.getP1().clone().add(config.getInt("ISLAND_WIDTH")/2, 0, config.getInt("ISLAND_DEPTH")/2));
-            				c.add(n);
+            			// Make it so an island can only run one level calculator at a time
+            			if (!runningCalculators.contains(playerIsland.getKey())) {
+	            			List<Chunk> c = new ArrayList<Chunk>(2);
+	            			Chunk o = skyWorld.getChunkAt(playerIsland.getP1().clone().add(config.getInt("ISLAND_WIDTH")/2, 0, config.getInt("ISLAND_DEPTH")/2));
+	            			c.add(o);
+	            			if (usingNether) {
+	            				Chunk n = skyNether.getChunkAt(playerIsland.getP1().clone().add(config.getInt("ISLAND_WIDTH")/2, 0, config.getInt("ISLAND_DEPTH")/2));
+	            				c.add(n);
+	            			}
+	            			new LevelCalculator(c, p, playerIsland);
+	            			sender.sendMessage(ChatColor.GREEN + getLanguage("level-calculating"));
+	            			runningCalculators.add(playerIsland.getKey());
             			}
-            			new LevelCalculator(c, p);
-            			sender.sendMessage(ChatColor.GREEN + getLanguage("level-calculating"));
 	            		return true;
             		} else {
             			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
@@ -1428,7 +1508,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		        								Bukkit.getPluginManager().callEvent(e);
 		        								if (!e.getCancelled()) {
 				        							playerIsland.trustPlayer(op.getUniqueId());
-				        							sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("trust-added"));
+				        							sender.sendMessage(chatPrefix + getLanguage("trust-added"));
 		        								}
 			        							return true;
 		        							}
@@ -1439,7 +1519,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		        								Bukkit.getPluginManager().callEvent(e);
 		        								if (!e.getCancelled()) {
 			            							playerIsland.removeTrust(op.getUniqueId());
-				        							sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("trust-removed"));
+				        							sender.sendMessage(chatPrefix + getLanguage("trust-removed"));
 		        								}
 			        							return true;
 		        							} else {
@@ -1782,7 +1862,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
         		Player p = (Player) sender;
         		World sw = getServer().getWorlds().get(0);
         		p.teleport(sw.getSpawnLocation());
-        		sender.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("spawn"));
+        		sender.sendMessage(chatPrefix + getLanguage("spawn"));
         		return true;
         	} else {
         		sender.sendMessage(ChatColor.RED + "You must be a player to use this command!");
@@ -1794,11 +1874,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent e) {
+    	// Just make sure that we can't place on other's islands
     	Block b = e.getBlock();
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
     	if (p != null) {
-    		if ((p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
+    		if ((p.getWorld() == skyWorld || (usingNether && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
 	    		if (playerIsland != null) {
 	    			if (!(playerIsland.inBounds(b.getLocation()))) {
 	    				e.setCancelled(true);
@@ -1819,11 +1900,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onBlockBreak(BlockBreakEvent e) {
+    	// make sure we can't break on other peoples islands
     	Block b = e.getBlock();
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
     	if (p != null) {
-    		if ((p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
+    		if ((p.getWorld() == skyWorld || (usingNether && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
 	    		if (playerIsland != null) {
 	    			if (!(playerIsland.inBounds(b.getLocation()))) {
 	    				e.setCancelled(true);
@@ -1844,19 +1926,20 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent e) {
+    	// This one is fairly beefy because settings can change which types of interactions are allowed
     	Block b = e.getClickedBlock();
     	Player p = e.getPlayer();
     	SkyblockPlayer sp = getSkyblockPlayer(p);
     	Island playerIsland = sp.getIsland();
     	if (p != null && b != null) {
-    		if ((p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
+    		if ((p.getWorld() == skyWorld || (usingNether && p.getWorld() == skyNether)) && !(p.hasPermission("skyblock.admin"))) {
 	    		if (sp.getVisiting() != null) {
     				Island visitingIsland = sp.getVisiting().getIsland();
 	    			if (visitingIsland.trustContains(p.getUniqueId()) && visitingIsland.inBounds(p.getLocation())) {
 	    				playerIsland = sp.getVisiting().getIsland();
 	    			} else {
 	    				if (!(
-	    						
+	    						// I know, this is a bit crazy and confusing, they are for visiting settings.
 	    						
 	    						((b.getType() == XMaterial.ACACIA_DOOR.parseMaterial()
 	    						|| b.getType() == XMaterial.BIRCH_DOOR.parseMaterial()
@@ -1955,8 +2038,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    		}
     		}
     	}
-    	if (!e.isCancelled() && config.getBoolean("BONEMEAL_DOES_MORE") && config.getBoolean("USE_CUSTOM_MECHANICS") && (p.getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getWorld() == skyNether))) {
-			if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
+    	if (!e.isCancelled() && config.getBoolean("BONEMEAL_DOES_MORE") && config.getBoolean("USE_CUSTOM_MECHANICS") && (p.getWorld() == skyWorld || (usingNether && p.getWorld() == skyNether))) {
+			// also have some stuff for custom mechanics
+    		if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
 				if (b.getType() == XMaterial.DIRT.parseMaterial() && b.getRelative(BlockFace.UP).getType() != XMaterial.WATER.parseMaterial()) {
 					if (p.getItemInHand().getType() == XMaterial.BONE_MEAL.parseMaterial()) {
 						e.setCancelled(true);
@@ -1994,6 +2078,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 								e.setCancelled(true);
 								skyWorld.dropItem(r.getLocation(), toDrop);
 								Effect happyVillager = Effect.valueOf("HAPPY_VILLAGER");
+								// Gotta have those cross-version effects
 								if (happyVillager != null) {
 									skyWorld.playEffect(b.getLocation(), happyVillager, 0);
 								} else {
@@ -2051,6 +2136,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onPlayerInteractEntity(PlayerInteractEntityEvent e) {
+    	// make it so people can only breed animals and trade with villagers if it's allowed
     	Player p = e.getPlayer();
     	SkyblockPlayer sp = getSkyblockPlayer(p);
     	if (p.getLocation().getWorld() == skyWorld || p.getLocation().getWorld() == skyNether) {
@@ -2082,85 +2168,96 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onEntityDamage(EntityDamageEvent e) {
-    	if(e instanceof EntityDamageByEntityEvent && (e.getEntity().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getEntity().getLocation().getWorld() == skyNether))){
+    	// No pvp, no killing stuff unless allowed, and getting money from kills
+    	if(e instanceof EntityDamageByEntityEvent && (e.getEntity().getLocation().getWorld() == skyWorld || (usingNether && e.getEntity().getLocation().getWorld() == skyNether))){
 	        EntityDamageByEntityEvent edbeEvent = (EntityDamageByEntityEvent)e;
+	        Player p = null;
+	        boolean goAhead = false;
 	        if (edbeEvent.getDamager() instanceof Player){
 	            if (e.getEntity() instanceof Player) {
-	            	if ((e.getEntity().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getEntity().getLocation().getWorld() == skyNether)) && !(edbeEvent.getDamager().isOp())) {
+	            	if ((e.getEntity().getLocation().getWorld() == skyWorld || (usingNether && e.getEntity().getLocation().getWorld() == skyNether)) && !(edbeEvent.getDamager().isOp())) {
 	            		// make it so nobody can attack anybody on an island
 	            		e.setCancelled(true);
 	            	}
 	            } else {
-	            	Player p = (Player)edbeEvent.getDamager();
-	            	if (p == null && edbeEvent.getDamager() instanceof Arrow) {
-	            		if ((Arrow)edbeEvent.getDamager() instanceof Arrow) {
-		            		p = (Player)((Arrow)edbeEvent.getDamager()).getShooter();
+	            	goAhead = true;
+	            }
+	        } else if (edbeEvent.getDamager() instanceof Projectile) {
+	        	Projectile a = (Projectile)edbeEvent.getDamager();
+	        	if (a.getShooter() instanceof Player) {
+	        		p = (Player)a.getShooter();
+	        		goAhead = true;
+	        	}
+	        }
+	        if (goAhead) {
+            	if (p == null && edbeEvent.getDamager() instanceof Arrow) {
+            		if ((Arrow)edbeEvent.getDamager() instanceof Arrow) {
+	            		p = (Player)((Arrow)edbeEvent.getDamager()).getShooter();
+            		}
+            	}
+            	Island playerIsland = getPlayerIsland(p);
+            	if (p != null) {
+            		SkyblockPlayer sp = getSkyblockPlayer(p);
+	            	if ((playerIsland == null || !(playerIsland.inBounds(e.getEntity().getLocation()))) && !(edbeEvent.getDamager().isOp()) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+	            		if (!(sp.getVisiting() != null && sp.getVisiting().getIsland() != null && sp.getVisiting().getIsland().inBounds(e.getEntity().getLocation()) && sp.getVisiting().getIsland().getSetting("killAnimals"))) {
+		            		// make it so people cant hurt mobs on other people's islands
+		            		e.setCancelled(true);
 	            		}
-	            	}
-	            	Island playerIsland = getPlayerIsland(p);
-	            	if (p != null) {
-	            		SkyblockPlayer sp = getSkyblockPlayer(p);
-		            	if ((playerIsland == null || !(playerIsland.inBounds(e.getEntity().getLocation()))) && !(edbeEvent.getDamager().isOp()) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
-		            		if (!(sp.getVisiting() != null && sp.getVisiting().getIsland() != null && sp.getVisiting().getIsland().inBounds(e.getEntity().getLocation()) && sp.getVisiting().getIsland().getSetting("killAnimals"))) {
-			            		// make it so people cant hurt mobs on other people's islands
-			            		e.setCancelled(true);
+	            	} else {
+	            		if ((e.getEntity() instanceof LivingEntity || e.getEntity() instanceof Arrow) && config.getBoolean("USE_ECONOMY")) {
+		            		if (edbeEvent.getDamage() >= ((LivingEntity)e.getEntity()).getHealth()) {
+		            			double getMoney = 0;
+		            			List<String> KILL_MONEY = config.getStringList("KILL_MONEY");
+		            			for (int i = 0; i < KILL_MONEY.size(); i++) {
+		            				String etype = KILL_MONEY.get(i).split(":")[0];
+		            				Double emoney = Double.valueOf(KILL_MONEY.get(i).split(":")[1]);
+		            				if (etype.equalsIgnoreCase("Default")) {
+		            					getMoney = emoney;
+		            				} else if (etype.equalsIgnoreCase("Monster")) {
+		            					if (e.getEntity() instanceof Monster) {
+		            						getMoney = emoney;
+		            					}
+		            				} else if (etype.equalsIgnoreCase("Animals")) {
+		            					if (e.getEntity() instanceof Animals) {
+		            						getMoney = emoney;
+		            					}
+		            				} else {
+		            					EntityType eT = EntityType.fromName(etype);
+		            					if (eT != null && e.getEntityType() == eT) {
+		            						getMoney = emoney;
+		            					} else if (eT == null) {
+		            						getLogger().severe("Unknown entity at KILL_MONEY \"" + etype + "\"");
+		            					}
+		            				}
+		            			}
+		            			if (getMoney != 0) {
+		            				if (usingVault) {
+		            					if (getMoney > 0) {
+		            						vaultEconomy.depositPlayer(p, getMoney);
+		            					} else {
+		            						vaultEconomy.withdrawPlayer(p, -1*getMoney);
+		            					}
+		            				} else {
+			            				Economy econ = new Economy(p.getUniqueId(), data);
+			            				econ.deposit(getMoney);
+		            				}
+			            			DecimalFormat dec = new DecimalFormat("#0.00");
+			            			if (getMoney > 0) {
+			            				p.sendMessage(ChatColor.GREEN + getLanguage("kill-get").replace("{money}", dec.format(getMoney)).replace("{mob}", e.getEntity().getType().getName().replace("_", " ")));
+			            			} else {
+			            				p.sendMessage(ChatColor.RED + getLanguage("kill-lose").replace("{money}", dec.format(getMoney)).replace("{mob}", e.getEntity().getType().getName().replace("_", " ")));
+			            			}
+		            			}
+		            			Entity ent = e.getEntity();
+		            			Location entloc = ent.getLocation();
+		            			entloc.add(0,-1,0);
+		            			if (config.getBoolean("SOUL_SAND") && config.getBoolean("USE_CUSTOM_MECHANICS") && entloc.getWorld() == skyNether && entloc.getBlock().getType() == Material.SAND) {
+		            				entloc.getBlock().setType(XMaterial.SOUL_SAND.parseMaterial());
+		            			}
 		            		}
-		            	} else {
-		            		if ((e.getEntity() instanceof LivingEntity || e.getEntity() instanceof Arrow) && config.getBoolean("USE_ECONOMY")) {
-			            		if (edbeEvent.getDamage() >= ((LivingEntity)e.getEntity()).getHealth()) {
-			            			double getMoney = 0;
-			            			List<String> KILL_MONEY = config.getStringList("KILL_MONEY");
-			            			for (int i = 0; i < KILL_MONEY.size(); i++) {
-			            				String etype = KILL_MONEY.get(i).split(":")[0];
-			            				Double emoney = Double.valueOf(KILL_MONEY.get(i).split(":")[1]);
-			            				if (etype.equalsIgnoreCase("Default")) {
-			            					getMoney = emoney;
-			            				} else if (etype.equalsIgnoreCase("Monster")) {
-			            					if (e.getEntity() instanceof Monster) {
-			            						getMoney = emoney;
-			            					}
-			            				} else if (etype.equalsIgnoreCase("Animals")) {
-			            					if (e.getEntity() instanceof Animals) {
-			            						getMoney = emoney;
-			            					}
-			            				} else {
-			            					EntityType eT = EntityType.fromName(etype);
-			            					if (eT != null && e.getEntityType() == eT) {
-			            						getMoney = emoney;
-			            					} else if (eT == null) {
-			            						getLogger().severe("Unknown entity at KILL_MONEY \"" + etype + "\"");
-			            					}
-			            				}
-			            			}
-			            			if (getMoney != 0) {
-			            				if (usingVault) {
-			            					if (getMoney > 0) {
-			            						vaultEconomy.depositPlayer(p, getMoney);
-			            					} else {
-			            						vaultEconomy.withdrawPlayer(p, -1*getMoney);
-			            					}
-			            				} else {
-				            				Economy econ = new Economy(p.getUniqueId(), data);
-				            				econ.deposit(getMoney);
-			            				}
-				            			DecimalFormat dec = new DecimalFormat("#0.00");
-				            			if (getMoney > 0) {
-				            				p.sendMessage(ChatColor.GREEN + getLanguage("kill-get").replace("{money}", dec.format(getMoney)).replace("{mob}", e.getEntity().getType().getName().replace("_", " ")));
-				            			} else {
-				            				p.sendMessage(ChatColor.RED + getLanguage("kill-lose").replace("{money}", dec.format(getMoney)).replace("{mob}", e.getEntity().getType().getName().replace("_", " ")));
-				            			}
-			            			}
-			            			Entity ent = e.getEntity();
-			            			Location entloc = ent.getLocation();
-			            			entloc.add(0,-1,0);
-			            			if (config.getBoolean("SOUL_SAND") && config.getBoolean("USE_CUSTOM_MECHANICS") && entloc.getWorld() == skyNether && entloc.getBlock().getType() == Material.SAND) {
-			            				entloc.getBlock().setType(XMaterial.SOUL_SAND.parseMaterial());
-			            			}
-			            		}
-			            	}
 		            	}
 	            	}
-	            }
+            	}
 	        }
     	}
     	if (e.getEntity() instanceof Player && (e.getEntity().getWorld() == skyWorld || e.getEntity().getWorld() == skyNether)) {
@@ -2178,6 +2275,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent e) {
+    	// player join handling. We gotta clear their inventories if they're queued to, and we also gotta disable collisions and take them home if they are visiting an island because
+    	// that island is no longer loaded.
     	Player p = e.getPlayer();
     	SkyblockPlayer sp = getSkyblockPlayer(p);
     	if (p != null) {
@@ -2216,6 +2315,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     public void onPlayerQuit(PlayerQuitEvent e) {
+    	// save the players data when they leave.
     	Player p = e.getPlayer();
     	SkyblockPlayer sp = getSkyblockPlayer(p);
     	if (sp != null) {
@@ -2225,7 +2325,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
     @EventHandler
     public void onBlockForm(BlockFormEvent e) {
-    	if (e.getNewState().getType() == XMaterial.COBBLESTONE.parseMaterial()) {
+    	// previously onFromTo, which was a lot more intense on the CPU. Now use onBlockForm and it works like a charm
+    	if (e.getNewState().getType() == XMaterial.COBBLESTONE.parseMaterial() && (e.getBlock().getWorld() == skyWorld || (usingNether && e.getBlock().getWorld() == skyNether))) {
     		e.setCancelled(true);
     		if (config.getBoolean("GENERATE_ORES")) {
 				double oreType = Math.random() * 100.0;
@@ -2246,15 +2347,21 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			}
 		    if (e.getBlock().getType() == XMaterial.AIR.parseMaterial()) {
 		    	e.getBlock().setType(XMaterial.COBBLESTONE.parseMaterial());
+		    } else if (e.getBlock().getType() != XMaterial.COBBLESTONE.parseMaterial()) {
+		    	BlockFormEvent ne = new BlockFormEvent(e.getBlock(), e.getBlock().getState());
+		    	this.getServer().getPluginManager().callEvent(ne);
+		    	// call event so we can do fancy stuff in things like Skript and change the material.
+		    	// Don't do it for cobblestone though or we'll create an infinite loop.
 		    }
     	}
     }
 
     @EventHandler
     public void onPlayerPickupItem(PlayerPickupItemEvent e) {
+    	// make it so only in certain cases can players pickup items.
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
-    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+    	if ((p.getLocation().getWorld() == skyWorld || (usingNether && p.getLocation().getWorld() == skyNether)) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
     		e.setCancelled(true);
 			SkyblockPlayer sp = getSkyblockPlayer(p);
     		if (sp.getVisiting() != null) {
@@ -2268,9 +2375,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     
 	@EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent e) {
+		// make it so only in certain cases players can drop items.
     	Player p = e.getPlayer();
     	Island playerIsland = getPlayerIsland(p);
-    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
+    	if ((p.getLocation().getWorld() == skyWorld || (usingNether && p.getLocation().getWorld() == skyNether)) && ((playerIsland == null || !(playerIsland.inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin")))) {
     		e.setCancelled(true);
 			SkyblockPlayer sp = getSkyblockPlayer(p);
     		if (sp.getVisiting() != null) {
@@ -2290,6 +2398,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			if (sp.getVisiting() != null) {
 				if (!sp.getVisiting().getIsland().inBounds(p.getLocation())) {
 					sp.setVisiting(null);
+					// your no longer visiting them
 				}
 			}
 		}
@@ -2302,6 +2411,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				p.setFlying(false);
 			}
 		}
+		// void instant death stuff
 		if (config.getBoolean("VOID_INSTANT_DEATH") && p.getLocation().getY() < -10 && sp != null) {
 			boolean d = false;
 			for (int i = 0; i < config.getStringList("VOID_INSTANT_DEATH_WORLDS").size(); i++) {
@@ -2366,6 +2476,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerDeath(PlayerDeathEvent e) {
+		// player death loss and stuff
 		Entity ent = e.getEntity();
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
@@ -2417,6 +2528,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerRespawn(PlayerRespawnEvent e) {
+		// spawn management
 		Player p = e.getPlayer();
 		SkyblockPlayer sp = getSkyblockPlayer(p);
 		if (sp.oldBedSpawn() != null) {
@@ -2427,6 +2539,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onProjectileLaunch(ProjectileLaunchEvent e) {
+		// make it so you can't use like bows on other player's islands
 		ProjectileSource ent = e.getEntity().getShooter();
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
@@ -2446,14 +2559,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerChat(AsyncPlayerChatEvent e) {
-		List<String> chatworlds = config.getStringList("CHAT_WORLDS");
+		// manage chat (this is very commonly run so things are cached to improve performance
 		Boolean useChat = false;
-		for (int i = 0; i < chatworlds.size(); i++) {
-			if (chatworlds.get(i).equalsIgnoreCase(e.getPlayer().getLocation().getWorld().getName()) || chatworlds.get(i).equalsIgnoreCase("*")) {
+		for (int i = 0; i < chatWorlds.size(); i++) {
+			if (chatWorlds.get(i).equalsIgnoreCase(e.getPlayer().getLocation().getWorld().getName()) || chatWorlds.get(i).equalsIgnoreCase("*")) {
 				useChat = true;
 			}
 		}
-		if (config.getBoolean("USE_CHATROOMS") && useChat) {
+		if (useChatrooms && useChat) {
 			Player p = e.getPlayer();
 			Island playerIsland = getPlayerIsland(p);
 			if (playerIsland != null) {
@@ -2469,6 +2582,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onEntityTargetLivingEntity(EntityTargetLivingEntityEvent e) {
+		// make it so mobs don't target visiting players
 		Entity ent = e.getTarget();
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
@@ -2483,11 +2597,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onVehicleEnter(VehicleEnterEvent e) {
+		// make it so visitors can't enter vehicles unless allowed to
+		// NOTE: this is really weird because they teleport to that location, but it is the only bukkit event, except for perhaps EntityInteract, I will have to look into that in the future
 		Entity ent = e.getEntered();
 		if (ent instanceof Player) {
 			Player p = (Player) ent;
 	    	SkyblockPlayer sp = getSkyblockPlayer(p);
-	    	if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+	    	if ((p.getLocation().getWorld() == skyWorld || (usingNether && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 	    		if (sp.getVisiting() != null && !sp.getVisiting().getIsland().getSetting("rideMobs")) {
 	    			e.setCancelled(true);
 	    		}
@@ -2498,7 +2614,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onEntityExplode(EntityExplodeEvent e) {
-		if (config.getBoolean("BLAST_PROCESSING") && config.getBoolean("USE_CUSTOM_MECHANICS") && (e.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getLocation().getWorld() == skyNether))) {
+		// Gotta love that blast processing
+		if (config.getBoolean("BLAST_PROCESSING") && config.getBoolean("USE_CUSTOM_MECHANICS") && (e.getLocation().getWorld() == skyWorld || (usingNether && e.getLocation().getWorld() == skyNether))) {
 	        for (Block b : e.blockList()) {
 	            if(b.getType() == XMaterial.COBBLESTONE.parseMaterial()) {
 	            	if (b.getWorld() == skyNether) {
@@ -2529,7 +2646,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onBlockBurn(BlockBurnEvent e) {
-		if (config.getBoolean("COBBLE_HEATING") && config.getBoolean("USE_USTOM_MECHANICS") && (e.getBlock().getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && e.getBlock().getLocation().getWorld() == skyNether))) {
+		// gotta love that cobble heating
+		if (config.getBoolean("COBBLE_HEATING") && config.getBoolean("USE_USTOM_MECHANICS") && (e.getBlock().getLocation().getWorld() == skyWorld || (usingNether && e.getBlock().getLocation().getWorld() == skyNether))) {
 			Block b = e.getBlock();
 			Block c = b.getRelative(BlockFace.UP);
 			if (b.getType() == XMaterial.COAL_BLOCK.parseMaterial() && c.getType() == XMaterial.COBBLESTONE.parseMaterial()) {
@@ -2544,10 +2662,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	}
 	@EventHandler
 	public void onPlayerTeleport(PlayerTeleportEvent e) {
+		// catch players using portals in some versions
 		Player p = e.getPlayer();
-		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER") && !Bukkit.getServer().getVersion().contains("1.15")) {
+		if (e.getCause() == TeleportCause.NETHER_PORTAL && usingNether && !Bukkit.getServer().getVersion().contains("1.15")) {
 			SkyblockPlayer sp = getSkyblockPlayer(p);
-			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+			if ((p.getLocation().getWorld() == skyWorld || (usingNether && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().getSetting("usePortals")) {
 	    			e.setCancelled(true);
 	    		}
@@ -2579,10 +2698,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onPlayerPortal(PlayerPortalEvent e) {
-		if (e.getCause() == TeleportCause.NETHER_PORTAL && config.getBoolean("USE_NETHER")) {
+		// catch players using nether portals in other versions
+		if (e.getCause() == TeleportCause.NETHER_PORTAL && usingNether) {
 			Player p = e.getPlayer();
 			SkyblockPlayer sp = getSkyblockPlayer(p);
-			if ((p.getLocation().getWorld() == skyWorld || (config.getBoolean("USE_NETHER") && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
+			if ((p.getLocation().getWorld() == skyWorld || (usingNether && p.getLocation().getWorld() == skyNether)) && ((sp.getIsland() == null || !(sp.getIsland().inBounds(p.getLocation()))) && !(p.hasPermission("skyblock.admin"))) && !(sp != null && sp.getVisiting() != null && sp.getVisiting().getIsland().trustContains(p.getUniqueId()) && sp.getVisiting().getIsland().inBounds(p.getLocation()))) {
 	    		if (sp.getVisiting() != null && sp.getIsland().inBounds(p.getLocation()) && !sp.getVisiting().getIsland().getSetting("usePortals")) {
 	    			e.setCancelled(true);
 	    		}
@@ -2606,12 +2726,17 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onWorldSave(WorldSaveEvent e) {
-		saveData();
-		// save data
+		if (e.getWorld() == skyWorld || (usingNether && e.getWorld() == skyNether)) {
+			saveData();
+		}
+		// Save island data when world data is saved
+		// Changed to be only when skyworld or skynether is saved because this actually does
+		// require lotsa processing if we run it a lot
 	}
 	
 	@EventHandler
 	public void onGUISelectItem(GUISelectItemEvent e) {
+		// manage our GUIs that we have open
 		if (e.getType() == 0 && e.getData() != null) {
 			ConfigurationSection c = config.getConfigurationSection("ISLAND_TYPES." + e.getData());
 			if (!c.isSet("permission") || e.getPlayer().hasPermission(c.getString("permission"))) {
@@ -2635,7 +2760,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 		            PlayerCreateIslandEvent ev = new PlayerCreateIslandEvent(getSkyblockPlayer(e.getPlayer()), e.getPlayer(), nextIsland, config.getBoolean("RETAIN_MONEY"), islandType);
 		            Bukkit.getPluginManager().callEvent(ev);
 		            if (!ev.getCancelled()) {
-			            e.getPlayer().sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("generating-island"));
+			            e.getPlayer().sendMessage(chatPrefix + getLanguage("generating-island"));
 		            	generateIsland(ev.getIslandLocation(), e.getPlayer(), null, ev.getOverrideResetMoney(), islandType, e.getData());
 		            	if (cost != 0) {
 			            	if (usingVault) {
@@ -2722,14 +2847,14 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 			            			tempInv.clear();
 			            			tempInv.setArmorContents(new ItemStack[4]);
 			            			tempP.teleport(sp.getHome(), TeleportCause.PLUGIN);
-			            			tempP.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-success"));
+			            			tempP.sendMessage(chatPrefix + getLanguage("reset-success"));
 			            		}
 			            	}
 			            }
 			            PlayerInventory inv = p.getInventory();
 			            inv.clear();
 			            inv.setArmorContents(new ItemStack[4]);
-			            p.sendMessage(config.getString("CHAT_PREFIX").replaceAll("&", "§") + getLanguage("reset-success"));
+			            p.sendMessage(chatPrefix + getLanguage("reset-success"));
         			}
 				} else {
 					e.getPlayer().sendMessage(ChatColor.RED + getLanguage("not-enough-money"));
@@ -2757,6 +2882,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onLevelCalculatorFinish(LevelCalculatorFinishEvent e) {
+		// Do stuff when level calculator has finished
+		runningCalculators.remove(e.getIsland().getKey());
 		getLogger().info("Checked " + e.getCalculator().getCheckedCount() + " chunks and calculated " + e.getCalculator().getPts() + " pts");
 		if (e.getPlayer() != null) {
 			int lvl = (int)Math.floor((e.getCalculator().getPts()*config.getDouble("LEVEL_POINTS_MULTIPLIER"))+(e.getCalculator().getCheckedCount()*config.getDouble("LEVEL_SPREAD_MULTIPLIER")));
@@ -2795,6 +2922,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onStructurePaint(StructurePaintEvent e) {
+		// Detecting when GStructure is gonna place a jigsaw block because we tryna replace it with ore, spawn, or a starter chest
+		// A lot of this was copied from the internal code of GStructure
 		if (e.getPalette().getName().replaceFirst("minecraft:", "").equalsIgnoreCase("jigsaw")) {
 			Block currentBlock = e.getLocation().getWorld().getBlockAt(e.getLocation());
 			if (e.getBlockEntityTag() instanceof JigsawTag) {
@@ -2855,11 +2984,11 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	
 	@EventHandler
 	public void onEntitySpawn(EntitySpawnEvent e) {
+		// Make sure we don't hit the animal cap
 		Entity ent = e.getEntity();
 		if (ent instanceof Animals) {
 			if (e.getLocation().getWorld() == skyWorld || e.getLocation().getWorld() == skyNether) {
-				for (int i = 0; i < players.size(); i++) {
-					Island is = players.get(i).getIsland();
+				islands.forEach((is) -> {
 					if (is != null && is.inBounds(e.getLocation())) {
 						if (is.getPassiveMobs() >= config.getInt("ANIMAL_CAP")) {
 							e.setCancelled(true);
@@ -2868,28 +2997,29 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 						}
 						return;
 					}
-				}
+				});
 			}
 		}
 	}
     
     @EventHandler
     public void onEntityDeath(EntityDeathEvent e) {
+    	// free up part of the animal cap (Not gonna lie, it is pretty intense to check if it's in bounds of every island)
 		Entity ent = e.getEntity();
 		if (ent instanceof Animals) {
 			if (ent.getLocation().getWorld() == skyWorld || ent.getLocation().getWorld() == skyNether) {
-				for (int i = 0; i < players.size(); i++) {
-					Island is = players.get(i).getIsland();
-					if (is != null && is.inBounds(ent.getLocation())) {
+				islands.forEach((is) -> {
+					if (is != null && is.inBounds(e.getEntity().getLocation())) {
 						is.setPassiveMobs(is.getPassiveMobs() - 1);
 						return;
 					}
-				}
+				});
 			}
 		}
     }
 	
     public void saveData() {
+    	// save all open islands and players
 		for (int i = 0; i < islands.size(); i++) {
 			islands.get(i).saveIsland();
 		}
@@ -2909,11 +3039,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
 
 	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost, String schematic, String opName) {
-		
-		// Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyWorld, config, getLogger());
-		// iss.generate();
-		GStructure structure = new GStructure(this);
-		structure.read(new File(getDataFolder() + File.separator + "structures" + File.separator + schematic + ".nbt"));
+		// generate structure and setup new Island
+		if (!structures.containsKey(schematic)) {
+			GStructure structure = new GStructure(this);
+			structure.read(new File(getDataFolder() + File.separator + "structures" + File.separator + schematic + ".nbt"));
+			structures.put(schematic, structure);
+		}
+		GStructure structure = structures.get(schematic);
 		loc.setWorld(skyWorld);
 		int buildKey = GStructure.getNextBuildKey();
 		structure.generate(loc);
@@ -2990,16 +3122,19 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	}
 	
 	public void generateNetherIsland(Location loc, String schematic) {
-		
-		// Structure iss = new Structure(loc, schematics.getSchematic(schematic), skyNether, config, getLogger());
-		// iss.generate();
-		GStructure structure = new GStructure(this);
-		structure.read(new File(getDataFolder() + File.separator + "structures" + File.separator + schematic + ".nbt"));
+		// Same as above but we don't setup the island stuff
+		if (!structures.containsKey(schematic)) {
+			GStructure structure = new GStructure(this);
+			structure.read(new File(getDataFolder() + File.separator + "structures" + File.separator + schematic + ".nbt"));
+			structures.put(schematic, structure);
+		}
+		GStructure structure = structures.get(schematic);
 		loc.setWorld(skyNether);
 		structure.generate(loc);
 	}
 
 	public static void noCollideAddPlayer(Player p) {
+		// use scoreboards to make it so players don't collide
         ScoreboardManager sm = Bukkit.getScoreboardManager();
         Scoreboard board = sm.getNewScoreboard();
         String rand = (""+Math.random()).substring(0, 3);
@@ -3010,11 +3145,13 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
 	
 	public static void noCollideRemovePlayer(Player p) {
+		// for use when using no collision worlds
 		p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
 	}
     
     @SuppressWarnings("rawtypes")
 	public static int getNotNullLength(List list) {
+    	// what it sounds like
     	int actualLength = 0;
     	for (int i = 0; i < list.size(); i++) {
     		if (list.get(i) != null) {
@@ -3025,6 +3162,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     public void convertConfig(String _old, String _new) {
+    	// converting from old versions of SS data to the newest
     	getLogger().info("Converting config from '" + _old + "' to '" + _new + "'...");
     	if (_old == "1.2.0" && _new == "1.2.1") {
     		ConfigurationSection oldData = (ConfigurationSection) config.get("data");
@@ -3111,6 +3249,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     public TradeRequest getTradeRequestFromPlayer(Player p) {
+    	// search through active trade requests
     	for (int i = 0; i < tradingRequests.size(); i++) {
     		if (tradingRequests.get(i) != null && tradingRequests.get(i).isActive() && tradingRequests.get(i).from() == p) {
     			return tradingRequests.get(i);
@@ -3122,6 +3261,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     public TradeRequest getTradeRequestToPlayer(Player p) {
+    	// same as above
     	for (int i = tradingRequests.size() - 1; i >= 0; i--) {
     		if (tradingRequests.get(i) != null && tradingRequests.get(i).isActive() && tradingRequests.get(i).to() == p) {
     			return tradingRequests.get(i);
@@ -3133,6 +3273,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     public TradeRequest getTradeRequest(Player p, Player t) {
+    	// same as above
     	for (int i = tradingRequests.size() - 1; i >= 0; i--) {
     		if (tradingRequests.get(i) != null && tradingRequests.get(i).isActive() && ((tradingRequests.get(i).to() == p && tradingRequests.get(i).from() == t) || (tradingRequests.get(i).to() == t && tradingRequests.get(i).from() == p))) {
     			return tradingRequests.get(i);
@@ -3142,6 +3283,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	}
     	return null;
     }
+    
+    // Below is a bunch of functions called often to switch between types like Player, SkyblockPlayer, and Island.
     
     public Island getPlayerIsland(Player p) {
     	for (int i = 0; i < islands.size(); i++) {
@@ -3214,6 +3357,7 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     }
     
     public IslandInvite getIslandInvite(Island is, Player p) {
+    	// Same as getting trade invites
     	for (int i = 0; i < islandInvites.size(); i++) {
     		if (islandInvites.get(i).getTo() == p && islandInvites.get(i).getIsland() == is && islandInvites.get(i).isActive()) {
     			return islandInvites.get(i);
@@ -3225,6 +3369,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 
 class EntityBreedHandler implements Listener {
 	
+	// This has to be put in a seperate class because the event does not exist for some versions of Minecraft.
+	
 	private SimpleSkyblock s;
 	
 	public EntityBreedHandler(SimpleSkyblock ss) {
@@ -3235,7 +3381,7 @@ class EntityBreedHandler implements Listener {
 	public void onEntityBreed(EntityBreedEvent e) {
 		Entity ent = e.getEntity();
 		if (ent instanceof Animals) {
-			if (ent.getLocation().getWorld() == s.skyWorld || ent.getLocation().getWorld() == s.skyNether) {
+			if (ent.getLocation().getWorld() == SimpleSkyblock.skyWorld || ent.getLocation().getWorld() == SimpleSkyblock.skyNether) {
 				for (int i = 0; i < SimpleSkyblock.players.size(); i++) {
 					Island is = SimpleSkyblock.players.get(i).getIsland();
 					if (is.inBounds(ent.getLocation())) {

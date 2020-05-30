@@ -58,7 +58,7 @@ public class TradeRequest {
             	}
             }
             
-        }.runTaskLater(plugin, 1200L);
+        }.runTaskLater(plugin, 1200L); // 1200 ticks is 60 seconds
         to.sendMessage(ChatColor.GREEN + "You have received a trade request from " + from.getName() + "! Type \"/trade accept " + from.getName() + "\" to trade with them. Warning: This request expires in 60 seconds!");
         from.sendMessage(ChatColor.GREEN + "You have successfully sent a trade request to " + to.getName() + ".");
 	}

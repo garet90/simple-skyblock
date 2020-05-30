@@ -86,6 +86,7 @@ public class Trade implements Listener {
 	}
 	
 	public void createMenu() {
+		// The GUI stuff. Cannot use the same as GUI.java because it needs multiple players seeing the same menu.
 		menu = Bukkit.createInventory(null, 54, ChatColor.DARK_GREEN + "Trade");
 		// Close menu button
 		ItemStack closeMenu = XMaterial.BARRIER.parseItem();
@@ -151,6 +152,8 @@ public class Trade implements Listener {
 	
 	@EventHandler
 	public void onInventoryClick(InventoryClickEvent e) {
+		// This function is very CPU intensive because of the use of many modulos and the such.
+		// TODO: many improvements can be made here in the future.
 		Player p = (Player) e.getWhoClicked();
 		ItemStack acceptButtonU = XMaterial.LIME_DYE.parseItem();
 		ItemMeta acceptMetaU = acceptButtonU.getItemMeta();

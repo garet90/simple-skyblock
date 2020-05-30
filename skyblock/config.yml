@@ -87,7 +87,7 @@ DISABLE_PLAYER_COLLISIONS: true
 # talk to the whole server using /shout. When this is
 # disabled, the server goes back to default chatting or
 # lets another plugin take over.
-USE_CHATROOMS: true
+USE_CHATROOMS: false
 
 # CHAT_WORLDS defines which worlds to use SimpleSkyblock's
 # chatrooms in. Using * will use the chatrooms for all
@@ -173,6 +173,55 @@ ISLAND_TYPES:
 # or skyblock.admin automatically bypass this.
 FLIGHT_EVERYWHERE: false
 
+ACHIEVEMENTS:
+# getDirt:
+#   requirements:
+#     hasItems:
+#     - DIRT:1
+#     # Required items in inventory to complete achievement
+#     hasMoney: 0
+#     # Required money to complete achievement
+#     hasPermission: skyblock.island
+#     # Required permission to complete achievement
+#   rewards:
+#     items:
+#     - DIAMOND:10
+#     money: 100
+#   item: DIRT
+#   name: "&2Get Dirt"
+#   lore:
+#   - "&r&7Get some dirt"
+#   - "&r&7That's about it."
+
+# An example of how to add an achievement. Achievements are checked
+# automatically and do not remove items or money upon completion,
+# whereas quests do.
+
+# ANNOUNCE_ACHIEVEMENTS determines whether or not to notify the entire
+# server when a player completes a skyblock achievement.
+ANNOUNCE_ACHIEVEMENTS: false
+
+QUESTS:
+# getDirt:
+#   costs:
+#     items:
+#     - DIRT:1
+#     money: 0
+#     permission: skyblock.island
+#     # Permission is not taken
+#   rewards:
+#     items:
+#     - DIAMOND:10
+#     money: 100
+#   item: DIRT
+#   name: "&2Get Dirt"
+#   lore:
+#   - "&r&7Get some dirt"
+#   - "&r&7That's about it."
+
+# An example of how to add a quests. Quests are checked each time
+# they are clicked on in the /is quests GUI. The costs are taken and
+# the rewards are added.
 
 
 # +-----------------------------+
@@ -236,6 +285,24 @@ LEVEL_SPREAD_MULTIPLIER: .1
 # affects passive mob spawning and breeding. (NOTE:
 # breeding cannot be bypassed on 1.9 and below)
 ANIMAL_CAP: 10
+
+UPGRADES:
+# betterGenerators:
+#   costs:
+#     money: 1000
+#     items:
+#     - DIAMOND:10
+#     permission: skyblock.island
+#   rewards:
+#     generator_ores:
+#     - DIAMOND_ORE:100
+
+# An example of how to add an upgrade. Upgrades
+# apply to islands. More rewards coming soon,
+# for now the only thing that can change are the
+# generator ores. Similar to quests, but apply to
+# islands.5
+
 
 
 # +------------------------------+

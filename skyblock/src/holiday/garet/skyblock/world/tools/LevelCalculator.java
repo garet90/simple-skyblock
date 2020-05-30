@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import holiday.garet.skyblock.event.LevelCalculatorFinishEvent;
+import holiday.garet.skyblock.island.Island;
 
 public class LevelCalculator {
 	
@@ -21,10 +22,12 @@ public class LevelCalculator {
 	int t = -9999;
 	boolean finished = false;
 	Player player;
+	Island island;
 	
 	public static HashMap<Material, Integer> points = new HashMap<>();
 	
-	public LevelCalculator(List<Chunk> sc, Player p) {
+	public LevelCalculator(List<Chunk> sc, Player p, Island is) {
+		island = is;
 		toCheck.addAll(sc);
 		LevelCalculator lc = this;
 		player = p;
@@ -35,7 +38,7 @@ public class LevelCalculator {
         			tick(toCheck.get(0));
             	} else {
             		finished = true;
-            		LevelCalculatorFinishEvent e = new LevelCalculatorFinishEvent(lc, player);
+            		LevelCalculatorFinishEvent e = new LevelCalculatorFinishEvent(lc, player, is);
             		Bukkit.getPluginManager().callEvent(e);
             		if (t != -9999) {
             			Bukkit.getScheduler().cancelTask(t);
