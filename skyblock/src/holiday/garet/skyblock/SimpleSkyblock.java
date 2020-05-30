@@ -141,10 +141,13 @@ import holiday.garet.skyblock.event.PlayerTrustAddEvent;
 import holiday.garet.skyblock.event.PlayerTrustRemoveEvent;
 import holiday.garet.skyblock.event.PlayerVisitIslandEvent;
 import holiday.garet.skyblock.gui.GUI;
+import holiday.garet.skyblock.island.Achievement;
 import holiday.garet.skyblock.island.Island;
 import holiday.garet.skyblock.island.IslandInvite;
 import holiday.garet.skyblock.island.IslandLevel;
+import holiday.garet.skyblock.island.Quest;
 import holiday.garet.skyblock.island.SkyblockPlayer;
+import holiday.garet.skyblock.island.Upgrade;
 import holiday.garet.skyblock.world.Generator;
 import holiday.garet.skyblock.world.tools.LevelCalculator;
 
@@ -191,6 +194,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	public static Boolean usingNether;
 	public static List<String> chatWorlds;
 	public static Boolean useChatrooms;
+	
+	public static List<Achievement> achievements = new ArrayList<Achievement>();
+	public static List<Quest> quests = new ArrayList<Quest>();
+	public static List<Upgrade> upgrades = new ArrayList<Upgrade>();
 	
     @Override
     public void onEnable() {
@@ -453,6 +460,36 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	chatWorlds = config.getStringList("CHAT_WORLDS");
     	useChatrooms = config.getBoolean("USE_CHATROOMS");
     	
+    	// load achievements
+    	ConfigurationSection achievements = config.getConfigurationSection("ACHIEVEMENTS");
+    	if (achievements != null && achievements.getKeys(false) != null) {
+	    	achievements.getKeys(false).forEach((achievement) -> {
+	    		Achievement n = new Achievement(achievement, config, data, vaultEconomy);
+	    		SimpleSkyblock.achievements.add(n);
+	    	});
+    	}
+    	getLogger().info("Loaded " + SimpleSkyblock.achievements.size() + " achievements.");
+    	
+    	// load quests
+    	ConfigurationSection quests = config.getConfigurationSection("QUESTS");
+    	if (quests != null && quests.getKeys(false) != null) {
+	    	quests.getKeys(false).forEach((quest) -> {
+	    		Quest n = new Quest(quest, config, data, vaultEconomy);
+	    		SimpleSkyblock.quests.add(n);
+	    	});
+    	}
+    	getLogger().info("Loaded " + SimpleSkyblock.quests.size() + " quests.");
+    	
+    	// load upgrades
+    	ConfigurationSection upgrades = config.getConfigurationSection("UPGRADES");
+    	if (upgrades != null && upgrades.getKeys(false) != null) {
+	    	upgrades.getKeys(false).forEach((upgrade) -> {
+	    		Upgrade n = new Upgrade(upgrade, config, data, vaultEconomy);
+	    		SimpleSkyblock.upgrades.add(n);
+	    	});
+    	}
+    	getLogger().info("Loaded " + SimpleSkyblock.upgrades.size() + " upgrades.");
+    	
     	// YAY
     	getLogger().info("SimpleSkyblock has been enabled!");
     	
@@ -492,11 +529,6 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     	// save data
     	getLogger().info("Saving skyblock data...");
     	saveData();
-    	try {
-			data.save(getDataFolder() + File.separator + "data.yml");
-		} catch (IOException e) {
-            Bukkit.getLogger().warning("§4Could not save data.yml file.");
-		}
     	
     	// YAY
     	getLogger().info("SimpleSkyblock has been disabled!");
@@ -596,6 +628,12 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
                 		sender.sendMessage(ChatColor.GREEN + "Island Commands (3/3)" + ChatColor.GRAY + ": ");
                 		sender.sendMessage(ChatColor.GRAY + "usage: /is [args]\n");
 	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is top" + ChatColor.RESET + ": display the top islands on the server.");
+	            		if (SimpleSkyblock.achievements.size() > 0)
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is achievements" + ChatColor.RESET + ": show your skyblock achievements.");
+	            		if (SimpleSkyblock.quests.size() > 0)
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is quests" + ChatColor.RESET + ": show available quests.");
+	            		if (SimpleSkyblock.upgrades.size() > 0)
+	            		sender.sendMessage(ChatColor.DARK_GRAY + "-" + ChatColor.GOLD + " /is upgrades" + ChatColor.RESET + ": show island upgrades.");
 	            		return true;
             		} else {
                 		sender.sendMessage(ChatColor.GREEN + "Island Commands (1/3)" + ChatColor.GRAY + ": ");
@@ -1185,6 +1223,96 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	            			sender.sendMessage(ChatColor.RED + getLanguage("leader-only"));
 	            			return true;
 	            		}
+            		} else {
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
+            			return true;
+            		}
+            	} else if (args[0].equalsIgnoreCase("achievements")) {
+            		if (playerIsland != null) {
+            			GUI g = new GUI(getLanguage("achievements-title"), p, (int)(Math.ceil(SimpleSkyblock.achievements.size() / 9.0)*9), 3);
+    					this.getServer().getPluginManager().registerEvents(g, this);
+            			for (int i = 0; i < SimpleSkyblock.achievements.size(); i++) {
+            				ItemStack it = achievements.get(i).getItem().clone();
+            				ItemMeta im = it.getItemMeta();
+            				List<String> lore = im.getLore();
+            				lore.add("");
+            				if (sp.hasAchievement(achievements.get(i).getName())) {
+            					lore.add(ChatColor.GREEN + "Completed");
+            				} else {
+            					lore.add(ChatColor.RED + "Not Completed");
+            				}
+            				im.setLore(lore);
+            				it.setItemMeta(im);
+            				g.setSlot(i, it, achievements.get(i).getName());
+            			}
+            			return true;
+            		} else {
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
+            			return true;
+            		}
+            	} else if (args[0].equalsIgnoreCase("quests")) {
+            		if (playerIsland != null) {
+            			if (p.getLocation().getWorld() == skyWorld || (usingNether && p.getLocation().getWorld() == skyNether)) {
+	            			GUI g = new GUI(getLanguage("quests-title"), p, (int)(Math.ceil(SimpleSkyblock.quests.size() / 9.0)*9), 4);
+	    					this.getServer().getPluginManager().registerEvents(g, this);
+	            			for (int i = 0; i < SimpleSkyblock.quests.size(); i++) {
+	            				ItemStack it = quests.get(i).getItem().clone();
+	            				ItemMeta im = it.getItemMeta();
+	            				List<String> lore = im.getLore();
+	            				lore.add("");
+	            				if (sp.hasQuest(quests.get(i).getName())) {
+	            					lore.add(ChatColor.GREEN + "Completed");
+	            				} else {
+	            					lore.add(ChatColor.RED + "Not Completed");
+	            					lore.add("");
+	            					if (SimpleSkyblock.quests.get(i).checkCompletion(p)) {
+	            						lore.add(ChatColor.GREEN + "" + ChatColor.ITALIC + "Click here to complete!");
+	            					} else {
+	            						lore.add(ChatColor.RED + "Requirements not met.");
+	            					}
+	            				}
+	            				im.setLore(lore);
+	            				it.setItemMeta(im);
+	            				g.setSlot(i, it, quests.get(i).getName());
+	            			}
+            			} else {
+            				sender.sendMessage(ChatColor.RED + getLanguage("not-on-island"));
+            			}
+            			return true;
+            		} else {
+            			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
+            			return true;
+            		}
+            	} else if (args[0].equalsIgnoreCase("upgrades")) {
+            		if (playerIsland != null) {
+            			if (p.getLocation().getWorld() == skyWorld || (usingNether && p.getLocation().getWorld() == skyNether)) {
+	            			// TODO upgrades
+	            			GUI g = new GUI(getLanguage("upgrades-title"), p, (int)(Math.ceil(SimpleSkyblock.upgrades.size() / 9.0)*9), 5);
+	    					this.getServer().getPluginManager().registerEvents(g, this);
+	            			for (int i = 0; i < SimpleSkyblock.upgrades.size(); i++) {
+	            				ItemStack it = upgrades.get(i).getItem().clone();
+	            				ItemMeta im = it.getItemMeta();
+	            				List<String> lore = im.getLore();
+	            				lore.add("");
+	            				if (playerIsland.hasUpgrade(SimpleSkyblock.upgrades.get(i).getName())) {
+	            					lore.add(ChatColor.GREEN + "Unlocked");
+	            				} else {
+	            					lore.add(ChatColor.RED + "Not unlocked");
+	            					lore.add("");
+	            					if (SimpleSkyblock.upgrades.get(i).checkCompletion(p)) {
+	            						lore.add(ChatColor.GREEN + "" + ChatColor.ITALIC + "Click here to unlock!");
+	            					} else {
+	            						lore.add(ChatColor.RED + "Requirements not met.");
+	            					}
+	            				}
+	            				im.setLore(lore);
+	            				it.setItemMeta(im);
+	            				g.setSlot(i, it, upgrades.get(i).getName());
+	            			}
+            			} else {
+            				sender.sendMessage(ChatColor.RED + getLanguage("not-on-island"));
+            			}
+            			return true;
             		} else {
             			sender.sendMessage(ChatColor.RED + getLanguage("must-have-island"));
             			return true;
@@ -2331,6 +2459,16 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		if (config.getBoolean("GENERATE_ORES")) {
 				double oreType = Math.random() * 100.0;
 				List<String> GENERATOR_ORES = config.getStringList("GENERATOR_ORES");
+				Island is = null;
+				for (int i = 0; i < islands.size(); i++) {
+					if (islands.get(i).inBounds(e.getBlock().getLocation())) {
+						is = islands.get(i);
+						break;
+					}
+				}
+				if (is != null && is.getGeneratorOres().size() > 0) {
+					GENERATOR_ORES = is.getGeneratorOres();
+				}
 			    for(int i = 0; i < GENERATOR_ORES.size(); i++) {
 			    	Material itemMat = XMaterial.matchXMaterial(GENERATOR_ORES.get(i).split(":")[0]).get().parseMaterial();
 			    	Double itemChance = Double.parseDouble(GENERATOR_ORES.get(i).split(":")[1]);
@@ -2370,6 +2508,24 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     				playerIsland = sp.getVisiting().getIsland();
     			}
 			}
+    	}
+    	if (!e.isCancelled() && (e.getPlayer().getLocation().getWorld() == skyWorld || (usingNether && e.getPlayer().getLocation().getWorld() == skyNether))) {
+			SkyblockPlayer sp = getSkyblockPlayer(p);
+			p.getInventory().addItem(e.getItem().getItemStack());
+			for (int i = 0; i < SimpleSkyblock.achievements.size(); i++) {
+				if (!sp.hasAchievement(SimpleSkyblock.achievements.get(i).getName()) && SimpleSkyblock.achievements.get(i).checkCompletion(p)) {
+					SimpleSkyblock.achievements.get(i).awardPlayer(p);
+					sp.setAchievement(SimpleSkyblock.achievements.get(i).getName(), true);
+					if (config.getBoolean("ANNOUNCE_ACHIEVEMENTS")) {
+						for (Player player: getServer().getOnlinePlayers()) {
+							player.sendMessage(getLanguage("achievements-announce").replace("{achievement}", SimpleSkyblock.achievements.get(i).getItem().getItemMeta().getDisplayName()).replace("{player}", e.getPlayer().getName()));
+						}
+					} else {
+						e.getPlayer().sendMessage(getLanguage("achievements-award").replace("{achievement}", SimpleSkyblock.achievements.get(i).getItem().getItemMeta().getDisplayName()));
+					}
+				}
+			}
+			p.getInventory().removeItem(e.getItem().getItemStack());
     	}
     }
     
@@ -2877,32 +3033,79 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 				im.setLore(lore);
 				e.getItem().setItemMeta(im);
 			}
+		} else if (e.getType() == 4 && e.getData() != null) {
+			String q = e.getData();
+			Quest qe = null;
+			for (int i = 0; i < SimpleSkyblock.quests.size(); i++) {
+				if (SimpleSkyblock.quests.get(i).getName() == q) {
+					qe = SimpleSkyblock.quests.get(i);
+					break;
+				}
+			}
+			if (qe != null) {
+				SkyblockPlayer sp = getSkyblockPlayer(e.getPlayer());
+				if (!sp.hasQuest(q) && qe.checkCompletion(e.getPlayer())) {
+					qe.awardPlayer(e.getPlayer());
+					sp.setQuest(q, true);
+					e.getPlayer().sendMessage(getLanguage("quests-award").replace("{quest}", qe.getItem().getItemMeta().getDisplayName()));
+					ItemMeta n = qe.getItem().getItemMeta();
+					List<String> nl = n.getLore();
+					nl.add("");
+					nl.add(ChatColor.GREEN + "Completed");
+					n.setLore(nl);
+					e.getItem().setItemMeta(n);
+				}
+			}
+		} else if (e.getType() == 5 && e.getData() != null) {
+			String u = e.getData();
+			Upgrade up = null;
+			for (int i = 0; i < SimpleSkyblock.upgrades.size(); i++) {
+				if (SimpleSkyblock.upgrades.get(i).getName() == u) {
+					up = SimpleSkyblock.upgrades.get(i);
+					break;
+				}
+			}
+			if (up != null) {
+				SkyblockPlayer sp = getSkyblockPlayer(e.getPlayer());
+				Island playerIsland = sp.getIsland();
+				if (!playerIsland.hasUpgrade(u) && up.checkCompletion(e.getPlayer())) {
+					up.awardPlayer(e.getPlayer(), playerIsland);
+					playerIsland.setUpgrade(u, true);
+					e.getPlayer().sendMessage(getLanguage("upgrades-purchase").replace("{upgrade}", up.getItem().getItemMeta().getDisplayName()));
+					ItemMeta n = up.getItem().getItemMeta();
+					List<String> nl = n.getLore();
+					nl.add("");
+					nl.add(ChatColor.GREEN + "Unlocked");
+					n.setLore(nl);
+					e.getItem().setItemMeta(n);
+				}
+			}
 		}
 	}
 	
 	@EventHandler
 	public void onLevelCalculatorFinish(LevelCalculatorFinishEvent e) {
 		// Do stuff when level calculator has finished
-		runningCalculators.remove(e.getIsland().getKey());
+		runningCalculators.set(runningCalculators.indexOf(e.getIsland().getKey()), null);
 		getLogger().info("Checked " + e.getCalculator().getCheckedCount() + " chunks and calculated " + e.getCalculator().getPts() + " pts");
 		if (e.getPlayer() != null) {
 			int lvl = (int)Math.floor((e.getCalculator().getPts()*config.getDouble("LEVEL_POINTS_MULTIPLIER"))+(e.getCalculator().getCheckedCount()*config.getDouble("LEVEL_SPREAD_MULTIPLIER")));
 			e.getPlayer().sendMessage(ChatColor.GREEN + getLanguage("level").replace("{level}", String.valueOf(lvl)));
 			int num = -1;
-			boolean me = false;
+			int me = -2;
 			SkyblockPlayer sp = getSkyblockPlayer(e.getPlayer());
 			OfflinePlayer l = getServer().getOfflinePlayer(sp.getIsland().getLeader());
 			String lname = l.getName();
 			for (int i = 0; i < topIslands.size(); i++) {
 				if (topIslands.get(i).getName() == lname) {
-					me = true;
+					me = i;
 				}
 				if (topIslands.get(i).getLevel() < lvl) {
 					num = i;
 					break;
 				}
 			}
-			if (num > -1 && !me) {
+			if (num > -1 && me == -2) {
 				IslandLevel n = new IslandLevel(lname, lvl);
 				String name = n.getName();
 				for (int i = num; i < topIslands.size(); i++) {
@@ -2913,7 +3116,10 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 						break;
 					}
 				}
-			} else if (topIslands.size() < 10 && !me) {
+			} else if (num == me) {
+				IslandLevel n = new IslandLevel(lname, lvl);
+				topIslands.set(me, n);
+			} else if (topIslands.size() < 10 && me == -2) {
 				IslandLevel n = new IslandLevel(lname, lvl);
 				topIslands.add(n);
 			}
@@ -3036,9 +3242,18 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
     		data.set("data.topIslands." + i + ".name", topIslands.get(i).getName());
     		data.set("data.topIslands." + i + ".level", topIslands.get(i).getLevel());
     	}
+    	try {
+			data.save(getDataFolder() + File.separator + "data.yml");
+		} catch (IOException e) {
+            Bukkit.getLogger().warning("§4Could not save data.yml file.");
+		}
     }
 
 	public void generateIsland(Location loc, Player p, Island playerIsland, Boolean overrideCost, String schematic, String opName) {
+		// if not set, let's use default (for legacy islands)
+		if (schematic == "null" || schematic == "") {
+			schematic = "default";
+		}
 		// generate structure and setup new Island
 		if (!structures.containsKey(schematic)) {
 			GStructure structure = new GStructure(this);
@@ -3100,6 +3315,8 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	    	playerIsland.setNether(false);
 	    	playerIsland.setSchematic(schematic);
 	    	playerIsland.removeReset();
+	    	playerIsland.resetUpgrades();
+	    	playerIsland.setGeneratorOres(new ArrayList<String>());
 	    }
 		sp.setVisiting(null);
 	    sp.setHome(p.getLocation());
@@ -3122,6 +3339,9 @@ public class SimpleSkyblock extends JavaPlugin implements Listener {
 	}
 	
 	public void generateNetherIsland(Location loc, String schematic) {
+		if (schematic == "null" || schematic == "") {
+			schematic = "default_nether";
+		}
 		// Same as above but we don't setup the island stuff
 		if (!structures.containsKey(schematic)) {
 			GStructure structure = new GStructure(this);

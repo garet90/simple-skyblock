@@ -296,12 +296,17 @@ UPGRADES:
 #   rewards:
 #     generator_ores:
 #     - DIAMOND_ORE:100
+#   item: FURNACE
+#   name: "&2Better Generators"
+#   lore:
+#   - "&r&7Cobblestone generators are better"
+#   - "&r&7That's about it."
 
 # An example of how to add an upgrade. Upgrades
 # apply to islands. More rewards coming soon,
 # for now the only thing that can change are the
 # generator ores. Similar to quests, but apply to
-# islands.5
+# islands.
 
 
 

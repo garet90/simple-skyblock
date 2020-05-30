@@ -24,10 +24,12 @@
 
 package holiday.garet.skyblock.island;
 
+import java.util.HashMap;
 import java.util.UUID;
 
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -45,6 +47,9 @@ public class SkyblockPlayer {
 	Boolean wasVisiting = false;
 	Location skySpawn;
 	Location oldBedSpawn;
+	
+	HashMap<String, Boolean> achievements = new HashMap<String, Boolean>();
+	HashMap<String, Boolean> quests = new HashMap<String, Boolean>();
 	
 	public SkyblockPlayer(Player _player, Island _island, World _world, World _world_nether, FileConfiguration _data, Plugin _plugin) {
 		
@@ -75,6 +80,18 @@ public class SkyblockPlayer {
 				_player.setBedSpawnLocation(_world.getSpawnLocation(), false);
 			}
 		}
+		if (data.isSet("data.players." + player.toString() + ".achievements")) {
+			ConfigurationSection s = data.getConfigurationSection("data.players." + player.toString() + ".achievements");
+			s.getKeys(false).forEach((key) -> {
+				achievements.put(key, s.getBoolean(key));
+			});
+		}
+		if (data.isSet("data.players." + player.toString() + ".quests")) {
+			ConfigurationSection s = data.getConfigurationSection("data.players." + player.toString() + ".quests");
+			s.getKeys(false).forEach((key) -> {
+				quests.put(key, s.getBoolean(key));
+			});
+		}
 	}
 	
 	public SkyblockPlayer(UUID _player, Island _island, World _world, World _world_nether, FileConfiguration _data, Plugin _plugin) {
@@ -100,6 +117,18 @@ public class SkyblockPlayer {
 		if (data.isSet("data.players." + player.toString() + ".visiting")) {
 			wasVisiting = true;
 		}
+		if (data.isSet("data.players." + player.toString() + ".achievements")) {
+			ConfigurationSection s = data.getConfigurationSection("data.players." + player.toString() + ".achievements");
+			s.getKeys(false).forEach((key) -> {
+				achievements.put(key, s.getBoolean(key));
+			});
+		}
+		if (data.isSet("data.players." + player.toString() + ".quests")) {
+			ConfigurationSection s = data.getConfigurationSection("data.players." + player.toString() + ".quests");
+			s.getKeys(false).forEach((key) -> {
+				quests.put(key, s.getBoolean(key));
+			});
+		}
 	}
 	
 	public void savePlayer() {
@@ -121,6 +150,14 @@ public class SkyblockPlayer {
 		if (visiting != null) {
 			data.set("data.players." + player.toString() + ".visiting", visiting.getPlayerUUID().toString());
 		}
+		// achievements
+		achievements.forEach((key, value) -> {
+			data.set("data.players." + player.toString() + ".achievements." + key, value);
+		});
+		// quests
+		quests.forEach((key, value) -> {
+			data.set("data.players." + player.toString() + ".quests." + key, value);
+		});
 	}
 	
 	public Player getPlayer() {
@@ -185,6 +222,36 @@ public class SkyblockPlayer {
 	
 	public Location oldBedSpawn() {
 		return oldBedSpawn;
+	}
+	
+	public boolean hasAchievement(String achievement) {
+		if (achievements.containsKey(achievement) && achievements.get(achievement)) {
+			return true;
+		}
+		return false;
+	}
+	
+	public boolean hasQuest(String quest) {
+		if (quests.containsKey(quest) && quests.get(quest)) {
+			return true;
+		}
+		return false;
+	}
+
+	public void setAchievement(String name, boolean value) {
+		if (achievements.containsKey(name)) {
+			achievements.replace(name, value);
+		} else {
+			achievements.put(name, value);
+		}
+	}
+	
+	public void setQuest(String name, boolean value) {
+		if (quests.containsKey(name)) {
+			quests.replace(name, value);
+		} else {
+			quests.put(name, value);
+		}
 	}
 	
 }

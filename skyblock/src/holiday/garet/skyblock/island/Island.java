@@ -31,6 +31,7 @@ import java.util.UUID;
 
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -52,6 +53,10 @@ public class Island {
 	int passiveMobs = 0;
 	Plugin plugin;
 	HashMap<String, Boolean> settings = new HashMap<String, Boolean>();
+	
+	HashMap<String, Boolean> upgrades = new HashMap<String, Boolean>();
+	
+	List<String> generatorOres = new ArrayList<String>();
 
 	public Island(int _islandKey, World _world, FileConfiguration _data, Plugin _plugin) {
 		islandKey = _islandKey;
@@ -82,6 +87,13 @@ public class Island {
 				nether = data.getBoolean("data.islands." + String.valueOf(islandKey) + ".nether");
 			} else {
 				nether = false;
+			}
+			generatorOres = data.getStringList("data.islands." + String.valueOf(islandKey) + ".generatorOres");
+			if (data.isSet("data.islands." + String.valueOf(islandKey) + ".upgrades")) {
+				ConfigurationSection s = data.getConfigurationSection("data.islands." + String.valueOf(islandKey) + ".upgrades");
+				s.getKeys(false).forEach((key) -> {
+					upgrades.put(key, s.getBoolean(key));
+				});
 			}
 		}
 	}
@@ -187,6 +199,11 @@ public class Island {
 		data.set("data.islands." + String.valueOf(islandKey) + ".resetsLeft", resetsLeft);
 		data.set("data.islands." + String.valueOf(islandKey) + ".trusts", trusts);
 		data.set("data.islands." + String.valueOf(islandKey) + ".passiveMobs", passiveMobs);
+		data.set("data.islands." + String.valueOf(islandKey) + ".generatorOres", generatorOres);
+		// upgrades
+		upgrades.forEach((key, value) -> {
+			data.set("data.islands." + String.valueOf(islandKey) + ".upgrades." + key, value);
+		});
 	}
 	
 	public boolean hasPlayer(Player p) {
@@ -366,4 +383,30 @@ public class Island {
 		return settings.get(setting);
 	}
 	
+	public void setGeneratorOres(List<String> generatorOres) {
+		this.generatorOres = generatorOres;
+	}
+	
+	public List<String> getGeneratorOres() {
+		return generatorOres;
+	}
+	
+	public boolean hasUpgrade(String upgrade) {
+		if (upgrades.containsKey(upgrade) && upgrades.get(upgrade)) {
+			return true;
+		}
+		return false;
+	}
+
+	public void setUpgrade(String name, boolean value) {
+		if (upgrades.containsKey(name)) {
+			upgrades.replace(name, value);
+		} else {
+			upgrades.put(name, value);
+		}
+	}
+	
+	public void resetUpgrades() {
+		upgrades = new HashMap<String, Boolean>();
+	}
 }
